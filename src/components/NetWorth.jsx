@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { setAppData } from '../lib/db'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
@@ -86,7 +87,10 @@ export default function NetWorth() {
     return () => window.removeEventListener('focus', onFocus)
   }, [])
 
-  useEffect(() => { localStorage.setItem(NW_KEY, JSON.stringify(accounts)) }, [accounts])
+  useEffect(() => {
+    localStorage.setItem(NW_KEY, JSON.stringify(accounts))
+    setAppData('net_worth', accounts).catch(console.error)
+  }, [accounts])
 
   function add() {
     setAccounts(p => [...p, {

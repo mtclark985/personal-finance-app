@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { setAppData } from '../lib/db'
 
 const BUDGET_KEY = 'finance_budget'
 
@@ -330,7 +331,10 @@ export default function BudgetPlanner({ household, earnerView }) {
   const [incomeMonth, setIncomeMonth] = useState(now.getMonth() + 1)
   const [budget, setBudget] = useState(loadBudget)
 
-  useEffect(() => { localStorage.setItem(BUDGET_KEY, JSON.stringify(budget)) }, [budget])
+  useEffect(() => {
+    localStorage.setItem(BUDGET_KEY, JSON.stringify(budget))
+    setAppData('budget', budget).catch(console.error)
+  }, [budget])
 
   const setEarnerField = useCallback((earner, field, value) => {
     setBudget(b => ({ ...b, [earner]: { ...b[earner], [field]: value } }))

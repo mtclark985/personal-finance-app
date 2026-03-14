@@ -1,3 +1,4 @@
+import { setAppData } from '../lib/db'
 import { useState, useEffect, useMemo } from 'react'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
@@ -108,7 +109,10 @@ function NumInput({ value, onChange, prefix = '$', suffix = '', step = 100, min 
 export default function InvestmentAllocation() {
   const [d, setD] = useState(load)
 
-  useEffect(() => { localStorage.setItem(INV_KEY, JSON.stringify(d)) }, [d])
+  useEffect(() => {
+    localStorage.setItem(INV_KEY, JSON.stringify(d))
+    setAppData('investments', d).catch(console.error)
+  }, [d])
 
   function set(field, val) { setD(prev => ({ ...prev, [field]: val })) }
 

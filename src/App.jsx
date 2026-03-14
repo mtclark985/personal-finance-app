@@ -14,9 +14,8 @@ import InvestmentAllocation from './components/InvestmentAllocation'
 import DebtPayoff from './components/DebtPayoff'
 import FinancialHealthScore from './components/FinancialHealthScore'
 import { useHousehold } from './context/HouseholdContext'
+import { fetchTransactions, upsertTransaction, removeTransaction, syncAllFromCloud } from './lib/db'
 import './App.css'
-
-const STORAGE_KEY = 'finance_transactions'
 
 const SAMPLE_TRANSACTIONS = [
   // --- December 2025 ---
@@ -152,21 +151,55 @@ function EditableName({ value, onSave }) {
 
 export default function App() {
   const { household, setHousehold } = useHousehold()
-  const [transactions, setTransactions] = useState(getInitialTransactions)
+  const [transactions, setTransactions] = useState([])
+  const [dbReady,      setDbReady]      = useState(false)
   const [filterYear, setFilterYear]     = useState(getCurrentYearMonth().year)
   const [filterMonth, setFilterMonth]   = useState(getCurrentYearMonth().month)
   const [activeTab, setActiveTab]       = useState('dashboard')
   const [earnerView, setEarnerView]     = useState('combined')
 
+  // ── Startup: pull all data from Supabase into localStorage, then load transactions
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions))
-  }, [transactions])
+    let cancelled = false
+    async function init() {
+      try {
+        // Sync all app config keys (budget, loans, networth, etc.) to localStorage
+        // so components that read localStorage work immediately after this
+        await syncAllFromCloud()
 
-  function addTransaction(tx) {
-    setTransactions(prev => [{ ...tx, id: crypto.randomUUID() }, ...prev])
+        // Load transactions from Supabase
+        const txs = await fetchTransactions()
+        if (!cancelled) {
+          setTransactions(txs.length > 0 ? txs : SAMPLE_TRANSACTIONS)
+        }
+      } catch (err) {
+        console.error('Supabase init error — falling back to localStorage:', err)
+        if (!cancelled) setTransactions(getInitialTransactions())
+      } finally {
+        if (!cancelled) setDbReady(true)
+      }
+    }
+    init()
+    return () => { cancelled = true }
+  }, [])
+
+  async function addTransaction(tx) {
+    const newTx = { ...tx, id: crypto.randomUUID() }
+    setTransactions(prev => [newTx, ...prev])
+    try {
+      await upsertTransaction(newTx)
+    } catch (err) {
+      console.error('Failed to save transaction:', err)
+    }
   }
-  function deleteTransaction(id) {
+
+  async function deleteTransaction(id) {
     setTransactions(prev => prev.filter(tx => tx.id !== id))
+    try {
+      await removeTransaction(id)
+    } catch (err) {
+      console.error('Failed to delete transaction:', err)
+    }
   }
 
   // Month-filtered transactions
@@ -218,6 +251,15 @@ export default function App() {
   // Tabs where the month selector and earner toggle are relevant
   const showMonthSelector = ['dashboard', 'transactions'].includes(activeTab)
   const showEarnerToggle  = ['dashboard', 'cashflow', 'transactions', 'budget', 'retirement', 'tax'].includes(activeTab)
+
+  if (!dbReady) {
+    return (
+      <div className="app-loading">
+        <div className="app-loading-logo">S</div>
+        <p className="app-loading-text">Loading Sage…</p>
+      </div>
+    )
+  }
 
   return (
     <div className="app">

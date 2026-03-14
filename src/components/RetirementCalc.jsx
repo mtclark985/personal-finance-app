@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { setAppData } from '../lib/db'
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
@@ -132,7 +133,10 @@ function NumInput({ label, value, onChange, prefix = '$', suffix = '', min = 0, 
 export default function RetirementCalc({ household, earnerView }) {
   const [d, setD] = useState(load)
 
-  useEffect(() => { localStorage.setItem(RETIRE_KEY, JSON.stringify(d)) }, [d])
+  useEffect(() => {
+    localStorage.setItem(RETIRE_KEY, JSON.stringify(d))
+    setAppData('retirement', d).catch(console.error)
+  }, [d])
 
   const p1 = household?.p1 || 'Person 1'
   const p2 = household?.p2 || 'Person 2'

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { setAppData } from '../lib/db'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -76,7 +77,10 @@ function NumInput({ value, onChange, prefix = '$', suffix = '', step = 100, min 
 export default function EmergencyFund() {
   const [d, setD] = useState(load)
 
-  useEffect(() => { localStorage.setItem(EF_KEY, JSON.stringify(d)) }, [d])
+  useEffect(() => {
+    localStorage.setItem(EF_KEY, JSON.stringify(d))
+    setAppData('emergency_fund', d).catch(console.error)
+  }, [d])
 
   // Auto-sync expenses from budget planner
   const budgetExpenses = useMemo(() => readBudgetExpenses(), [])

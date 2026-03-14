@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { setAppData } from '../lib/db'
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
@@ -248,7 +249,10 @@ export default function FinancialHealthScore() {
   const [stored, setStored] = useState(loadHistory)
   const [showAll, setShowAll] = useState(false)
 
-  useEffect(() => { localStorage.setItem(HEALTH_KEY, JSON.stringify(stored)) }, [stored])
+  useEffect(() => {
+    localStorage.setItem(HEALTH_KEY, JSON.stringify(stored))
+    setAppData('financial_health', stored).catch(console.error)
+  }, [stored])
 
   const data = useMemo(() => readAll(), [])
 

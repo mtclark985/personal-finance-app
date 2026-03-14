@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { setAppData } from '../lib/db'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 
 const TAX_KEY    = 'sage_tax'
@@ -241,7 +242,10 @@ function WaterfallRow({ label, value, indent = false, bold = false, border = fal
 export default function TaxEstimator({ household, earnerView }) {
   const [d, setD] = useState(load)
 
-  useEffect(() => { localStorage.setItem(TAX_KEY, JSON.stringify(d)) }, [d])
+  useEffect(() => {
+    localStorage.setItem(TAX_KEY, JSON.stringify(d))
+    setAppData('tax', d).catch(console.error)
+  }, [d])
 
   const p1 = household?.p1 || 'Person 1'
   const p2 = household?.p2 || 'Person 2'

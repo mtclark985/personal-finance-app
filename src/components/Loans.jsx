@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { setAppData } from '../lib/db'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
@@ -91,7 +92,10 @@ export default function Loans() {
   const [lumpSum, setLump]            = useState(0)
   const [lumpSumMonth, setLumpMonth]  = useState(1)
 
-  useEffect(() => { localStorage.setItem(LOANS_KEY, JSON.stringify(loans)) }, [loans])
+  useEffect(() => {
+    localStorage.setItem(LOANS_KEY, JSON.stringify(loans))
+    setAppData('loans', loans).catch(console.error)
+  }, [loans])
   useEffect(() => { setExtra(0); setLump(0); setLumpMonth(1); setShowAll(false) }, [selectedId])
 
   function addLoan() {

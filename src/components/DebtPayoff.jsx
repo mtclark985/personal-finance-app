@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { setAppData } from '../lib/db'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, ReferenceLine,
@@ -207,7 +208,10 @@ function StrategyCard({ label, icon, color, bg, result, minResult, debtColors, d
 export default function DebtPayoff() {
   const [d, setD] = useState(load)
 
-  useEffect(() => { localStorage.setItem(DEBT_KEY, JSON.stringify(d)) }, [d])
+  useEffect(() => {
+    localStorage.setItem(DEBT_KEY, JSON.stringify(d))
+    setAppData('debt_payoff', d).catch(console.error)
+  }, [d])
 
   function set(field, val) { setD(prev => ({ ...prev, [field]: val })) }
 
