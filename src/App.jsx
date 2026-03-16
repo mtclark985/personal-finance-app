@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import TransactionForm from './components/TransactionForm'
 import TransactionList from './components/TransactionList'
 import MonthlySummary from './components/MonthlySummary'
@@ -12,10 +12,26 @@ import TaxEstimator from './components/TaxEstimator'
 import EmergencyFund from './components/EmergencyFund'
 import InvestmentAllocation from './components/InvestmentAllocation'
 import DebtPayoff from './components/DebtPayoff'
+import Bills from './components/Bills'
+import SavingsGoals from './components/SavingsGoals'
+import LongTermCashFlow from './components/LongTermCashFlow'
 import FinancialHealthScore from './components/FinancialHealthScore'
+import ESPP from './components/ESPP'
+import Equity from './components/Equity'
+import RentalProperties from './components/RentalProperties'
+import PassiveIncome from './components/PassiveIncome'
+import AIAdvisor from './components/AIAdvisor'
+import Landing from './components/Landing'
+import Auth from './components/Auth'
 import { useHousehold } from './context/HouseholdContext'
-import { fetchTransactions, upsertTransaction, removeTransaction, syncAllFromCloud } from './lib/db'
+import { supabase } from './lib/supabase'
+import {
+  fetchTransactions, upsertTransaction, removeTransaction,
+  syncAllFromCloud, getAppData, setAppData,
+} from './lib/db'
 import './App.css'
+
+const STORAGE_KEY = 'finance_transactions'
 
 const SAMPLE_TRANSACTIONS = [
   // --- December 2025 ---
@@ -97,19 +113,6 @@ const SAMPLE_TRANSACTIONS = [
   { id: 'm19', type: 'expense', amount: 49,     category: 'Education',          date: '2026-03-08', description: 'Online course' },
 ]
 
-function getInitialTransactions() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      if (parsed.length > 0) return parsed
-    }
-    return SAMPLE_TRANSACTIONS
-  } catch {
-    return SAMPLE_TRANSACTIONS
-  }
-}
-
 function getCurrentYearMonth() {
   const now = new Date()
   return { year: now.getFullYear(), month: now.getMonth() + 1 }
@@ -153,35 +156,104 @@ export default function App() {
   const { household, setHousehold } = useHousehold()
   const [transactions, setTransactions] = useState([])
   const [dbReady,      setDbReady]      = useState(false)
-  const [filterYear, setFilterYear]     = useState(getCurrentYearMonth().year)
-  const [filterMonth, setFilterMonth]   = useState(getCurrentYearMonth().month)
-  const [activeTab, setActiveTab]       = useState('dashboard')
-  const [earnerView, setEarnerView]     = useState('combined')
+  const [filterYear,   setFilterYear]   = useState(getCurrentYearMonth().year)
+  const [filterMonth,  setFilterMonth]  = useState(getCurrentYearMonth().month)
+  const [activeTab,    setActiveTab]    = useState('dashboard')
+  const [earnerView,   setEarnerView]   = useState('combined')
+  const [darkMode,     setDarkMode]     = useState(() => localStorage.getItem('sage_darkmode') === 'true')
 
-  // ── Startup: pull all data from Supabase into localStorage, then load transactions
-  useEffect(() => {
-    let cancelled = false
-    async function init() {
-      try {
-        // Sync all app config keys (budget, loans, networth, etc.) to localStorage
-        // so components that read localStorage work immediately after this
-        await syncAllFromCloud()
+  // Auth state
+  const [authState,  setAuthState]  = useState('loading') // 'loading' | 'landing' | 'auth' | 'app'
+  const [authView,   setAuthView]   = useState('login')   // 'login' | 'signup'
+  const [user,       setUser]       = useState(null)
+  const [isNewUser,  setIsNewUser]  = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
-        // Load transactions from Supabase
-        const txs = await fetchTransactions()
-        if (!cancelled) {
-          setTransactions(txs.length > 0 ? txs : SAMPLE_TRANSACTIONS)
-        }
-      } catch (err) {
-        console.error('Supabase init error — falling back to localStorage:', err)
-        if (!cancelled) setTransactions(getInitialTransactions())
-      } finally {
-        if (!cancelled) setDbReady(true)
+  // Prevent double-initialization when INITIAL_SESSION + SIGNED_IN both fire
+  const initializingRef = useRef(false)
+
+  // ── Initialize app for a logged-in user ───────────────────
+  async function initApp() {
+    try {
+      await syncAllFromCloud()
+      const txs = await fetchTransactions()
+
+      // Check if this user has been initialized before
+      const initialized = await getAppData('user_initialized')
+      if (!initialized) {
+        // Brand new user — seed sample data so they see a populated app
+        await setAppData('user_initialized', true)
+        await Promise.all(SAMPLE_TRANSACTIONS.map(tx => upsertTransaction(tx)))
+        setTransactions(SAMPLE_TRANSACTIONS)
+        setIsNewUser(true)
+      } else {
+        setTransactions(txs.length > 0 ? txs : [])
+        setIsNewUser(false)
       }
+    } catch (err) {
+      console.error('App init error — falling back to empty state:', err)
+      setTransactions([])
+    } finally {
+      setDbReady(true)
+      setAuthState('app')
+      initializingRef.current = false
     }
-    init()
-    return () => { cancelled = true }
+  }
+
+  // ── Auth state listener — single source of truth ──────────
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        // Clear all local data on sign out so the next user starts clean
+        localStorage.clear()
+        setUser(null)
+        setTransactions([])
+        setDbReady(false)
+        setIsNewUser(false)
+        setActiveTab('dashboard')
+        initializingRef.current = false
+        setAuthState('landing')
+        return
+      }
+
+      if (session && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
+        if (initializingRef.current) return
+        initializingRef.current = true
+        setUser(session.user)
+        setAuthState('loading')
+        await initApp()
+        return
+      }
+
+      // INITIAL_SESSION with no session → show landing
+      if (event === 'INITIAL_SESSION' && !session) {
+        setAuthState('landing')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem('sage_darkmode', darkMode)
+  }, [darkMode])
+
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!showUserMenu) return
+    function handler(e) {
+      if (!e.target.closest('.user-menu-wrap')) setShowUserMenu(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showUserMenu])
+
+  async function signOut() {
+    setShowUserMenu(false)
+    await supabase.auth.signOut()
+    // SIGNED_OUT event handled above
+  }
 
   async function addTransaction(tx) {
     const newTx = { ...tx, id: crypto.randomUUID() }
@@ -233,24 +305,62 @@ export default function App() {
   ]
 
   const TABS = [
-    { key: 'health',       label: '⭐ Score'      },
-    { key: 'dashboard',    label: 'Dashboard'    },
-    { key: 'cashflow',     label: 'Cash Flow'    },
-    { key: 'transactions', label: 'Transactions' },
-    { key: 'budget',       label: 'Income & Expenses' },
-    { key: 'retirement',   label: 'Retirement'   },
-    { key: 'tax',          label: 'Taxes'        },
-    { key: 'emergency',    label: 'Emergency'    },
-    { key: 'investments',  label: 'Investments'  },
-    { key: 'debtpayoff',   label: 'Debt Payoff'  },
-    { key: 'networth',     label: 'Net Worth'    },
-    { key: 'loans',        label: 'Loans'        },
-    { key: 'add',          label: '+ Add'        },
+    { key: 'advisor',      label: '💬 Sage'            },
+    { key: 'health',       label: '⭐ Score'           },
+    { key: 'dashboard',    label: 'Dashboard'          },
+    { key: 'cashflow',     label: 'Cash Flow'          },
+    { key: 'longterm',     label: 'Long-Term'          },
+    { key: 'transactions', label: 'Transactions'       },
+    { key: 'budget',       label: 'Income & Expenses'  },
+    { key: 'retirement',   label: 'Retirement'         },
+    { key: 'tax',          label: 'Taxes'              },
+    { key: 'emergency',    label: 'Emergency'          },
+    { key: 'bills',        label: 'Bills'              },
+    { key: 'goals',        label: 'Goals'              },
+    { key: 'investments',  label: 'Investments'        },
+    { key: 'espp',         label: 'ESPP'               },
+    { key: 'equity',       label: 'Equity'             },
+    { key: 'rentals',      label: 'Rentals'            },
+    { key: 'passive',      label: 'Passive'            },
+    { key: 'debtpayoff',   label: 'Debt Payoff'        },
+    { key: 'networth',     label: 'Net Worth'          },
+    { key: 'loans',        label: 'Loans'              },
+    { key: 'add',          label: '+ Add'              },
   ]
 
-  // Tabs where the month selector and earner toggle are relevant
   const showMonthSelector = ['dashboard', 'transactions'].includes(activeTab)
   const showEarnerToggle  = ['dashboard', 'cashflow', 'transactions', 'budget', 'retirement', 'tax'].includes(activeTab)
+
+  // ── Auth states ────────────────────────────────────────────
+
+  if (authState === 'loading') {
+    return (
+      <div className="app-loading">
+        <div className="app-loading-logo">S</div>
+        <p className="app-loading-text">Loading Sage…</p>
+      </div>
+    )
+  }
+
+  if (authState === 'landing') {
+    return (
+      <Landing
+        onGetStarted={() => { setAuthView('signup'); setAuthState('auth') }}
+        onLogin={()      => { setAuthView('login');  setAuthState('auth') }}
+      />
+    )
+  }
+
+  if (authState === 'auth') {
+    return (
+      <Auth
+        initialMode={authView}
+        onBack={() => setAuthState('landing')}
+      />
+    )
+  }
+
+  // ── Main app ───────────────────────────────────────────────
 
   if (!dbReady) {
     return (
@@ -262,8 +372,8 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
+    <div className={`app${darkMode ? ' dark' : ''}`}>
+      <aside className="app-sidebar">
         <div className="app-brand">
           <div className="app-logo">S</div>
           <div className="app-title-group">
@@ -272,107 +382,164 @@ export default function App() {
           </div>
         </div>
 
-        <div className="header-controls">
-          {showEarnerToggle && (
-            <div className="earner-toggle">
-              <button
-                className={`earner-btn ${earnerView === 'combined' ? 'active combined' : ''}`}
-                onClick={() => setEarnerView('combined')}
-              >
-                Combined
-              </button>
-              <button
-                className={`earner-btn earner-p1 ${earnerView === 'p1' ? 'active' : ''}`}
-                onClick={() => setEarnerView('p1')}
-              >
-                <EditableName
-                  value={household.p1}
-                  onSave={name => setHousehold(h => ({ ...h, p1: name }))}
-                />
-              </button>
-              <button
-                className={`earner-btn earner-p2 ${earnerView === 'p2' ? 'active' : ''}`}
-                onClick={() => setEarnerView('p2')}
-              >
-                <EditableName
-                  value={household.p2}
-                  onSave={name => setHousehold(h => ({ ...h, p2: name }))}
-                />
-              </button>
+        <nav className="tab-nav">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              className={activeTab === t.key ? 'active' : ''}
+              onClick={() => setActiveTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+
+        <button className="dark-toggle" onClick={() => setDarkMode(d => !d)}>
+          {darkMode ? '☀ Light Mode' : '☾ Dark Mode'}
+        </button>
+      </aside>
+
+      <div className="app-content">
+        <header className="app-header">
+          <div className="header-controls">
+            {showEarnerToggle && (
+              <div className="earner-toggle">
+                <button
+                  className={`earner-btn ${earnerView === 'combined' ? 'active combined' : ''}`}
+                  onClick={() => setEarnerView('combined')}
+                >
+                  Combined
+                </button>
+                <button
+                  className={`earner-btn earner-p1 ${earnerView === 'p1' ? 'active' : ''}`}
+                  onClick={() => setEarnerView('p1')}
+                >
+                  <EditableName
+                    value={household.p1}
+                    onSave={name => setHousehold(h => ({ ...h, p1: name }))}
+                  />
+                </button>
+                <button
+                  className={`earner-btn earner-p2 ${earnerView === 'p2' ? 'active' : ''}`}
+                  onClick={() => setEarnerView('p2')}
+                >
+                  <EditableName
+                    value={household.p2}
+                    onSave={name => setHousehold(h => ({ ...h, p2: name }))}
+                  />
+                </button>
+              </div>
+            )}
+
+            {showMonthSelector && (
+              <div className="month-selector">
+                <select
+                  value={`${filterYear}-${filterMonth}`}
+                  onChange={e => {
+                    const [y, m] = e.target.value.split('-').map(Number)
+                    setFilterYear(y); setFilterMonth(m)
+                  }}
+                >
+                  {availableMonths.map(({ year, month }) => (
+                    <option key={`${year}-${month}`} value={`${year}-${month}`}>
+                      {MONTH_NAMES[month - 1]} {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* User menu */}
+          <div className="user-menu-wrap">
+            <button
+              className="user-menu-btn"
+              onClick={() => setShowUserMenu(v => !v)}
+              title={user?.email}
+            >
+              <span className="user-avatar">
+                {(user?.email?.[0] ?? '?').toUpperCase()}
+              </span>
+              <span className="user-email-label">{user?.email}</span>
+              <span className="user-menu-chevron">{showUserMenu ? '▲' : '▼'}</span>
+            </button>
+
+            {showUserMenu && (
+              <div className="user-menu-dropdown">
+                <div className="user-menu-email">{user?.email}</div>
+                <button className="user-menu-signout" onClick={signOut}>
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Welcome banner for new users */}
+        {isNewUser && (
+          <div className="welcome-banner">
+            <div className="welcome-banner-content">
+              <span className="welcome-banner-icon">👋</span>
+              <div>
+                <strong>Welcome to Sage!</strong> We've loaded some sample transactions
+                so you can explore the app. Replace them with your own data anytime.
+              </div>
             </div>
-          )}
-
-          {showMonthSelector && (
-            <div className="month-selector">
-              <select
-                value={`${filterYear}-${filterMonth}`}
-                onChange={e => {
-                  const [y, m] = e.target.value.split('-').map(Number)
-                  setFilterYear(y); setFilterMonth(m)
-                }}
-              >
-                {availableMonths.map(({ year, month }) => (
-                  <option key={`${year}-${month}`} value={`${year}-${month}`}>
-                    {MONTH_NAMES[month - 1]} {year}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-      </header>
-
-      <nav className="tab-nav">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            className={activeTab === t.key ? 'active' : ''}
-            onClick={() => setActiveTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      <main className="app-main">
-        {activeTab === 'health' && <FinancialHealthScore />}
-
-        {activeTab === 'dashboard' && (
-          <div className="dashboard">
-            <MonthlySummary transactions={viewFiltered} year={filterYear} month={filterMonth}
-              earnerView={earnerView} household={household} />
-            <SpendingChart transactions={viewFiltered} />
+            <button className="welcome-banner-close" onClick={() => setIsNewUser(false)}>×</button>
           </div>
         )}
 
-        {activeTab === 'cashflow' && (
-          <CashFlow transactions={transactions} earnerView={earnerView} household={household} />
-        )}
+        <main className="app-main">
+          {activeTab === 'advisor' && <AIAdvisor transactions={transactions} />}
+          {activeTab === 'health' && <FinancialHealthScore />}
 
-        {activeTab === 'transactions' && (
-          <TransactionList
-            transactions={viewFiltered}
-            onDelete={deleteTransaction}
-            household={household}
-          />
-        )}
+          {activeTab === 'dashboard' && (
+            <div className="dashboard">
+              <MonthlySummary transactions={viewFiltered} year={filterYear} month={filterMonth}
+                earnerView={earnerView} household={household} />
+              <SpendingChart transactions={viewFiltered} />
+            </div>
+          )}
 
-        {activeTab === 'budget'     && <BudgetPlanner household={household} earnerView={earnerView} />}
-        {activeTab === 'retirement' && <RetirementCalc household={household} earnerView={earnerView} />}
-        {activeTab === 'tax'        && <TaxEstimator household={household} earnerView={earnerView} />}
-        {activeTab === 'emergency'   && <EmergencyFund />}
-        {activeTab === 'investments' && <InvestmentAllocation />}
-        {activeTab === 'debtpayoff'  && <DebtPayoff />}
-        {activeTab === 'networth'    && <NetWorth />}
-        {activeTab === 'loans'      && <Loans />}
+          {activeTab === 'cashflow' && (
+            <CashFlow transactions={transactions} earnerView={earnerView} household={household} />
+          )}
 
-        {activeTab === 'add' && (
-          <TransactionForm
-            household={household}
-            onAdd={tx => { addTransaction(tx); setActiveTab('transactions') }}
-          />
-        )}
-      </main>
+          {activeTab === 'longterm' && (
+            <LongTermCashFlow transactions={transactions} />
+          )}
+
+          {activeTab === 'transactions' && (
+            <TransactionList
+              transactions={viewFiltered}
+              onDelete={deleteTransaction}
+              household={household}
+            />
+          )}
+
+          {activeTab === 'budget'     && <BudgetPlanner household={household} earnerView={earnerView} />}
+          {activeTab === 'retirement' && <RetirementCalc household={household} earnerView={earnerView} />}
+          {activeTab === 'tax'        && <TaxEstimator household={household} earnerView={earnerView} />}
+          {activeTab === 'emergency'   && <EmergencyFund />}
+          {activeTab === 'bills'       && <Bills />}
+          {activeTab === 'goals'       && <SavingsGoals />}
+          {activeTab === 'investments' && <InvestmentAllocation />}
+          {activeTab === 'espp'        && <ESPP />}
+          {activeTab === 'equity'      && <Equity />}
+          {activeTab === 'rentals'     && <RentalProperties />}
+          {activeTab === 'passive'     && <PassiveIncome />}
+          {activeTab === 'debtpayoff'  && <DebtPayoff />}
+          {activeTab === 'networth'    && <NetWorth />}
+          {activeTab === 'loans'       && <Loans />}
+
+          {activeTab === 'add' && (
+            <TransactionForm
+              household={household}
+              onAdd={tx => { addTransaction(tx); setActiveTab('transactions') }}
+            />
+          )}
+        </main>
+      </div>
     </div>
   )
 }

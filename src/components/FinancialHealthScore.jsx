@@ -7,6 +7,8 @@ import {
 
 const HEALTH_KEY = 'sage_health'
 
+const DEFAULT_WEIGHTS = { ef: 0.18, debt: 0.18, savings: 0.14, cashflow: 0.14, retire: 0.18, invest: 0.10, passive: 0.08 }
+
 // ── Read all module data ───────────────────────────────────────
 function readAll() {
   function tryParse(key) {
@@ -101,7 +103,32 @@ function readAll() {
     nwMetrics = { total }
   }
 
-  return { budgetMetrics, efMetrics, debtMetrics, retMetrics, invMetrics, nwMetrics }
+  // ── Passive income metrics ──
+  let passiveMetrics = null
+  {
+    const rentals = tryParse('finance_rentals') || []
+    const passive = tryParse('finance_passive') || []
+    const rentalNCF = rentals.reduce((s, p) => {
+      const exp = (p.expenses?.taxes || 0) + (p.expenses?.insurance || 0) +
+        (p.expenses?.hoa || 0) + (p.expenses?.maintenance || 0) + (p.expenses?.other || 0)
+      const rent = p.occupied ? (p.monthlyRent || 0) * (1 - (p.vacancyRate || 0) / 100) : 0
+      return s + Math.max(0, rent - (p.mortgagePayment || 0) - exp)
+    }, 0)
+    const streamMonthly = passive.reduce((s, st) => {
+      const amount = st.amount || 0
+      if (st.frequency === 'Annual')    return s + amount / 12
+      if (st.frequency === 'Quarterly') return s + amount / 3
+      return s + amount
+    }, 0)
+    const totalPassive = rentalNCF + streamMonthly
+    const monthlyExpenses = budgetMetrics?.totalExpenses || 0
+    const coverage = monthlyExpenses > 0 ? totalPassive / monthlyExpenses : 0
+    if (totalPassive > 0 || rentals.length > 0 || passive.length > 0) {
+      passiveMetrics = { totalPassive, coverage, monthlyExpenses }
+    }
+  }
+
+  return { budgetMetrics, efMetrics, debtMetrics, retMetrics, invMetrics, nwMetrics, passiveMetrics }
 }
 
 // ── Scoring functions ──────────────────────────────────────────
@@ -213,13 +240,32 @@ function scoreInvestments(inv) {
   }
 }
 
+function scorePassiveIncome(passive) {
+  if (!passive) return { score: 50, status: 'Not Tracked', detail: 'Add rental properties or income streams to score this area.', metric: 'N/A' }
+  const p = passive.coverage * 100
+  const score = clamp(
+    p >= 100 ? 100 :
+    p >= 50  ? Math.round(75 + ((p - 50)  / 50) * 25) :
+    p >= 25  ? Math.round(50 + ((p - 25)  / 25) * 25) :
+    p >= 10  ? Math.round(25 + ((p - 10)  / 15) * 25) :
+    p > 0    ? Math.round(10 + p * 1.5) : 10
+  )
+  return {
+    score: clamp(score),
+    status: p >= 100 ? 'FI Achieved' : p >= 50 ? 'Strong' : p >= 25 ? 'Building' : p > 0 ? 'Starting' : 'None',
+    detail: `${p.toFixed(1)}% of expenses covered by passive income (${passive.totalPassive > 0 ? '$' + Math.round(passive.totalPassive).toLocaleString() + '/mo' : '$0'})`,
+    metric: `${p.toFixed(0)}%`,
+  }
+}
+
 const CATEGORIES = [
-  { key: 'ef',       label: 'Emergency Fund',    icon: '🛡️', weight: 0.20, scorer: (d) => scoreEmergencyFund(d.efMetrics) },
-  { key: 'debt',     label: 'Debt Management',   icon: '💳', weight: 0.20, scorer: (d) => scoreDebt(d.debtMetrics, d.budgetMetrics?.grossIncome) },
-  { key: 'savings',  label: 'Savings Rate',       icon: '💰', weight: 0.15, scorer: (d) => scoreSavingsRate(d.budgetMetrics) },
-  { key: 'cashflow', label: 'Cash Flow',          icon: '📊', weight: 0.15, scorer: (d) => scoreCashflow(d.budgetMetrics) },
-  { key: 'retire',   label: 'Retirement',         icon: '🏖️', weight: 0.20, scorer: (d) => scoreRetirement(d.retMetrics) },
+  { key: 'ef',       label: 'Emergency Fund',    icon: '🛡️', weight: 0.18, scorer: (d) => scoreEmergencyFund(d.efMetrics) },
+  { key: 'debt',     label: 'Debt Management',   icon: '💳', weight: 0.18, scorer: (d) => scoreDebt(d.debtMetrics, d.budgetMetrics?.grossIncome) },
+  { key: 'savings',  label: 'Savings Rate',       icon: '💰', weight: 0.14, scorer: (d) => scoreSavingsRate(d.budgetMetrics) },
+  { key: 'cashflow', label: 'Cash Flow',          icon: '📊', weight: 0.14, scorer: (d) => scoreCashflow(d.budgetMetrics) },
+  { key: 'retire',   label: 'Retirement',         icon: '🏖️', weight: 0.18, scorer: (d) => scoreRetirement(d.retMetrics) },
   { key: 'invest',   label: 'Investments',        icon: '📈', weight: 0.10, scorer: (d) => scoreInvestments(d.invMetrics) },
+  { key: 'passive',  label: 'Passive Income',     icon: '🏠', weight: 0.08, scorer: (d) => scorePassiveIncome(d.passiveMetrics) },
 ]
 
 function getGrade(score) {
@@ -241,13 +287,19 @@ function getScoreColor(s) {
 function loadHistory() {
   try {
     const s = localStorage.getItem(HEALTH_KEY)
-    return s ? JSON.parse(s) : { history: [] }
-  } catch { return { history: [] } }
+    if (s) {
+      const parsed = JSON.parse(s)
+      return { history: [], ...parsed, weights: { ...DEFAULT_WEIGHTS, ...(parsed.weights || {}) } }
+    }
+  } catch {}
+  return { history: [], weights: { ...DEFAULT_WEIGHTS } }
 }
 
 export default function FinancialHealthScore() {
   const [stored, setStored] = useState(loadHistory)
   const [showAll, setShowAll] = useState(false)
+  const [editingWeights, setEditingWeights] = useState(false)
+  const [weightDraft, setWeightDraft] = useState(null)
 
   useEffect(() => {
     localStorage.setItem(HEALTH_KEY, JSON.stringify(stored))
@@ -257,10 +309,11 @@ export default function FinancialHealthScore() {
   const data = useMemo(() => readAll(), [])
 
   const scores = useMemo(() => {
-    const cat = CATEGORIES.map(c => ({ ...c, ...c.scorer(data) }))
+    const weights = stored.weights || DEFAULT_WEIGHTS
+    const cat = CATEGORIES.map(c => ({ ...c, weight: weights[c.key] ?? c.weight, ...c.scorer(data) }))
     const overall = Math.round(cat.reduce((s, c) => s + c.score * c.weight, 0))
     return { cat, overall }
-  }, [data])
+  }, [data, stored.weights])
 
   const grade = getGrade(scores.overall)
   const scoreColor = getScoreColor(scores.overall)
@@ -336,6 +389,15 @@ export default function FinancialHealthScore() {
       action: 'Investments tab → set target allocation',
     })
 
+    const passive = cat.find(c => c.key === 'passive')
+    if (passive && passive.score < 50 && passive.status !== 'Not Tracked') recs.push({
+      priority: 'low',
+      category: 'Passive Income',
+      icon: '🏠',
+      text: 'Growing passive income reduces your dependence on active work. Rental properties, dividends, and side income all count.',
+      action: 'Rentals / Passive tab → add income streams',
+    })
+
     return recs.sort((a, b) => {
       const p = { high: 0, medium: 1, low: 2 }
       return p[a.priority] - p[b.priority]
@@ -348,9 +410,24 @@ export default function FinancialHealthScore() {
     const entry = { date: key, overall: scores.overall, ...Object.fromEntries(scores.cat.map(c => [c.key, c.score])) }
     setStored(prev => {
       const filtered = (prev.history || []).filter(h => h.date !== key)
-      return { history: [...filtered, entry].sort((a, b) => a.date.localeCompare(b.date)) }
+      return { ...prev, history: [...filtered, entry].sort((a, b) => a.date.localeCompare(b.date)) }
     })
   }
+
+  function openWeightEditor() {
+    const w = stored.weights || DEFAULT_WEIGHTS
+    setWeightDraft(Object.fromEntries(Object.entries(w).map(([k, v]) => [k, +(v * 100).toFixed(0)])))
+    setEditingWeights(true)
+  }
+
+  function saveWeights() {
+    const total = Object.values(weightDraft).reduce((s, v) => s + (+v || 0), 0)
+    if (Math.abs(total - 100) > 1) return
+    setStored(prev => ({ ...prev, weights: Object.fromEntries(Object.entries(weightDraft).map(([k, v]) => [k, (+v || 0) / 100])) }))
+    setEditingWeights(false)
+  }
+
+  const weightDraftSum = weightDraft ? Object.values(weightDraft).reduce((s, v) => s + (+v || 0), 0) : 100
 
   const historyChart = stored.history.map(h => ({
     date: h.date,
@@ -361,6 +438,7 @@ export default function FinancialHealthScore() {
     cashflow: h.cashflow,
     retire: h.retire,
     invest: h.invest,
+    passive: h.passive,
   }))
 
   const displayHistory = showAll ? [...stored.history].reverse() : [...stored.history].reverse().slice(0, 6)
@@ -405,12 +483,43 @@ export default function FinancialHealthScore() {
                : "Multiple areas need immediate action. Start with the highest-priority items."}
             </p>
             <div className="fh-hero-weights">
-              {CATEGORIES.map(c => (
+              {scores.cat.map(c => (
                 <div key={c.key} className="fh-weight-pill">
                   {c.icon} {c.label} <span>{(c.weight * 100).toFixed(0)}%</span>
                 </div>
               ))}
             </div>
+            {!editingWeights && (
+              <button className="link-btn" style={{ fontSize: '0.78rem', marginTop: 6 }} onClick={openWeightEditor}>
+                Edit weights
+              </button>
+            )}
+            {editingWeights && weightDraft && (
+              <div className="fh-weight-editor">
+                <p className="bp-subtitle" style={{ marginBottom: 8 }}>Weights must sum to 100%</p>
+                <div className="fh-weight-editor-grid">
+                  {CATEGORIES.map(c => (
+                    <div key={c.key} className="fh-weight-editor-row">
+                      <span>{c.icon} {c.label}</span>
+                      <div className="nw-num-wrap" style={{ width: 'fit-content' }}>
+                        <input className="nw-num-input" type="number" min={0} max={100} step={1}
+                          style={{ width: 50 }}
+                          value={weightDraft[c.key]}
+                          onChange={e => setWeightDraft(p => ({ ...p, [c.key]: e.target.value }))} />
+                        <span className="nw-suffix">%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className={`inv-target-sum ${Math.abs(weightDraftSum - 100) <= 1 ? 'inv-sum-ok' : 'inv-sum-warn'}`} style={{ marginTop: 8 }}>
+                  Total: {weightDraftSum}%
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button className="ef-log-btn" onClick={saveWeights} disabled={Math.abs(weightDraftSum - 100) > 1}>Save</button>
+                  <button className="bills-btn-ghost" onClick={() => setEditingWeights(false)}>Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Log button */}

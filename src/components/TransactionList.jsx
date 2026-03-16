@@ -22,6 +22,11 @@ export default function TransactionList({ transactions, onDelete, household }) {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
+  function isExpired(tx) {
+    if (!tx.endDate) return false
+    return tx.endDate < new Date().toISOString().slice(0, 10)
+  }
+
   function formatAmount(amount, type) {
     return `${type === 'income' ? '+' : '-'}$${amount.toFixed(2)}`
   }
@@ -45,6 +50,13 @@ export default function TransactionList({ transactions, onDelete, household }) {
                 </div>
                 {tx.description && <span className="tx-desc">{tx.description}</span>}
                 <span className="tx-date">{formatDate(tx.date)}</span>
+                {tx.recurring && (
+                  <span className={`tx-recurring-badge${isExpired(tx) ? ' tx-recurring-expired' : ''}`}>
+                    ↻ {tx.frequency || 'Monthly'}
+                    {tx.endDate && ` · ends ${tx.endDate}`}
+                    {isExpired(tx) && ' · expired'}
+                  </span>
+                )}
               </div>
               <div className="tx-right">
                 <span className="tx-amount">{formatAmount(tx.amount, tx.type)}</span>

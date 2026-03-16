@@ -7,6 +7,7 @@ const EXPENSE_CATEGORIES = [
 const INCOME_CATEGORIES = [
   'Salary','Freelance','Investment','Business','Gift','Other',
 ]
+const FREQUENCIES = ['Monthly', 'Weekly', 'Bi-weekly', 'Quarterly', 'Annual']
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
@@ -18,6 +19,9 @@ export default function TransactionForm({ onAdd, household }) {
   const [description, setDescription] = useState('')
   const [earner,      setEarner]      = useState('joint')
   const [error,       setError]       = useState('')
+  const [recurring,   setRecurring]   = useState(false)
+  const [frequency,   setFrequency]   = useState('Monthly')
+  const [endDate,     setEndDate]     = useState('')
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
   const p1 = household?.p1 || 'Person 1'
@@ -26,6 +30,7 @@ export default function TransactionForm({ onAdd, household }) {
   function handleTypeChange(t) {
     setType(t)
     setCategory(t === 'expense' ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0])
+    if (t === 'income') { setRecurring(false); setEndDate('') }
   }
 
   function handleSubmit(e) {
@@ -37,10 +42,20 @@ export default function TransactionForm({ onAdd, household }) {
     }
     if (!date) { setError('Please select a date.'); return }
     setError('')
-    onAdd({ type, amount: parsed, category, date, description: description.trim(), earner })
+    const tx = {
+      type, amount: parsed, category, date,
+      description: description.trim(), earner,
+      recurring: type === 'expense' && recurring,
+      frequency: type === 'expense' && recurring ? frequency : null,
+      endDate:   type === 'expense' && recurring && endDate ? endDate : null,
+    }
+    onAdd(tx)
     setAmount('')
     setDescription('')
     setDate(today())
+    setRecurring(false)
+    setFrequency('Monthly')
+    setEndDate('')
   }
 
   return (
@@ -98,6 +113,29 @@ export default function TransactionForm({ onAdd, household }) {
           <input id="description" type="text" placeholder="e.g. Grocery run"
             value={description} onChange={e => setDescription(e.target.value)} maxLength={100} />
         </div>
+
+        {type === 'expense' && (
+          <div className="form-group">
+            <label className="tf-recurring-label">
+              <input type="checkbox" checked={recurring} onChange={e => setRecurring(e.target.checked)} />
+              Recurring expense
+            </label>
+            {recurring && (
+              <div className="tf-recurring-fields">
+                <div>
+                  <label className="tf-sub-label">Frequency</label>
+                  <select value={frequency} onChange={e => setFrequency(e.target.value)}>
+                    {FREQUENCIES.map(f => <option key={f}>{f}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="tf-sub-label">End Date (optional)</label>
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {error && <p className="form-error">{error}</p>}
 

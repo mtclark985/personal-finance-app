@@ -1,7 +1,72 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import { setAppData } from '../lib/db'
 
-const BUDGET_KEY = 'finance_budget'
+const BUDGET_KEY  = 'finance_budget'
+const EQUITY_KEY  = 'finance_equity'
+const FREQUENCIES = ['Monthly', 'Weekly', 'Bi-weekly', 'Quarterly', 'Annual']
+
+function readEquityGrants() {
+  try {
+    const s = localStorage.getItem(EQUITY_KEY)
+    return s ? JSON.parse(s) : []
+  } catch { return [] }
+}
+
+function annualRsuVestForEarner(grants, earnerKey) {
+  const today     = new Date().toISOString().slice(0, 10)
+  const cutoff    = new Date(); cutoff.setFullYear(cutoff.getFullYear() + 1)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  const freqMap   = { monthly: 1, quarterly: 3, annual: 12 }
+  let total = 0
+  grants.forEach(g => {
+    if (g.type !== 'rsu') return
+    if (g.earner !== earnerKey) return
+    const price = parseFloat(g.currentPrice) || 0
+    if (!price || !g.grantDate || !g.totalShares || !g.vestingMonths) return
+    const freq = freqMap[g.vestingFrequency] ?? 1
+    const spm  = g.totalShares / g.vestingMonths
+    let cum = 0
+    if (g.cliffMonths > 0) {
+      const shares = Math.round(spm * g.cliffMonths)
+      const d = new Date(g.grantDate + 'T00:00:00'); d.setMonth(d.getMonth() + g.cliffMonths)
+      const ds = d.toISOString().slice(0, 10)
+      cum += shares
+      if (ds > today && ds <= cutoffStr) total += shares * price
+    }
+    for (let m = g.cliffMonths + freq; m <= g.vestingMonths; m += freq) {
+      const isLast = m + freq > g.vestingMonths
+      const shares = isLast ? g.totalShares - cum : Math.round(spm * freq)
+      if (shares <= 0) continue
+      const d = new Date(g.grantDate + 'T00:00:00'); d.setMonth(d.getMonth() + m)
+      const ds = d.toISOString().slice(0, 10)
+      cum += shares
+      if (ds > today && ds <= cutoffStr) total += shares * price
+    }
+  })
+  return total
+}
+
+function toMonthlyBudget(amount, frequency) {
+  switch (frequency || 'Monthly') {
+    case 'Weekly':    return amount * 52 / 12
+    case 'Bi-weekly': return amount * 26 / 12
+    case 'Monthly':   return amount
+    case 'Quarterly': return amount / 3
+    case 'Annual':    return amount / 12
+    default:          return amount
+  }
+}
+
+function isExpiredEntry(row) {
+  if (!row.endDate) return false
+  return row.endDate < new Date().toISOString().slice(0, 10)
+}
+
+function isExpiringSoon(row) {
+  if (!row.endDate || isExpiredEntry(row)) return false
+  const diffDays = (new Date(row.endDate) - new Date()) / (1000 * 60 * 60 * 24)
+  return diffDays <= 60
+}
 
 const BLANK_EARNER = {
   baseSalary: 0, bonusTarget: 0, equityTarget: 0,
@@ -173,7 +238,7 @@ function PctInput({ value, onChange, max = 50 }) {
   )
 }
 
-function EarnerIncome({ title, color, data, onChange, workDays }) {
+function EarnerIncome({ title, color, data, onChange, workDays, equityFromGrants, onSyncEquity }) {
   const c = computeIncome(data, workDays)
 
   return (
@@ -208,6 +273,25 @@ function EarnerIncome({ title, color, data, onChange, workDays }) {
               {data.baseSalary > 0 ? pct(data.equityTarget || 0, data.baseSalary) : ''}
             </td>
           </tr>
+          {equityFromGrants > 0 && (
+            <tr className="bp-equity-hint-row">
+              <td colSpan={3} className="bp-equity-hint-cell">
+                <div className="bp-equity-hint">
+                  <span className="bp-equity-hint-icon">🏷</span>
+                  <span className="bp-equity-hint-text">
+                    Equity tab: <strong>{fmt(equityFromGrants)}/yr</strong> vesting in next 12 mo
+                  </span>
+                  {Math.round(data.equityTarget || 0) !== Math.round(equityFromGrants) ? (
+                    <button className="bp-equity-sync-btn" onClick={onSyncEquity}>
+                      Use this ↑
+                    </button>
+                  ) : (
+                    <span className="bp-equity-synced">✓ Matches</span>
+                  )}
+                </div>
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -348,7 +432,10 @@ export default function BudgetPlanner({ household, earnerView }) {
   }, [])
 
   const addRow = useCallback((section) => {
-    setBudget(b => ({ ...b, [section]: [...b[section], { id: crypto.randomUUID(), label: '', amount: 0 }] }))
+    setBudget(b => ({
+      ...b,
+      [section]: [...b[section], { id: crypto.randomUUID(), label: '', amount: 0, recurring: false, frequency: 'Monthly', endDate: '' }],
+    }))
   }, [])
 
   const deleteRow = useCallback((section, id) => {
@@ -357,6 +444,10 @@ export default function BudgetPlanner({ household, earnerView }) {
 
   const p1 = household?.p1 || 'Person 1'
   const p2 = household?.p2 || 'Person 2'
+
+  const equityGrants   = readEquityGrants()
+  const equityAnnualP1 = annualRsuVestForEarner(equityGrants, 'p1')
+  const equityAnnualP2 = annualRsuVestForEarner(equityGrants, 'p2')
 
   const workDays = getWorkingDays(incomeYear, incomeMonth)
   const showBoth = earnerView === 'combined' || !earnerView
@@ -369,14 +460,81 @@ export default function BudgetPlanner({ household, earnerView }) {
   const th1 = showP1 ? c1.netTakeHome : 0
   const th2 = showP2 ? c2.netTakeHome : 0
   const combinedTakeHome   = th1 + th2
-  const totalFixed         = budget.fixedExpenses.reduce((s, r) => s + r.amount, 0)
-  const totalDiscretionary = budget.discretionary.reduce((s, r) => s + r.amount, 0)
+  const today              = new Date().toISOString().slice(0, 10)
+  const totalFixed         = budget.fixedExpenses
+    .filter(r => !r.endDate || today <= r.endDate)
+    .reduce((s, r) => s + toMonthlyBudget(r.amount, r.frequency), 0)
+  const totalDiscretionary = budget.discretionary
+    .filter(r => !r.endDate || today <= r.endDate)
+    .reduce((s, r) => s + toMonthlyBudget(r.amount, r.frequency), 0)
   const remaining          = combinedTakeHome - totalFixed - totalDiscretionary
 
   // Month picker options: prev year through next year
   const monthOptions = []
   for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
     for (let m = 1; m <= 12; m++) monthOptions.push({ year: y, month: m })
+  }
+
+  // ── Shared expense row renderer (used for both fixedExpenses and discretionary) ──
+  function renderExpenseRows(section) {
+    return budget[section].map(row => {
+      const expired  = isExpiredEntry(row)
+      const expiring = isExpiringSoon(row)
+      const monthly  = toMonthlyBudget(row.amount, row.frequency)
+      return (
+        <Fragment key={row.id}>
+          <tr className={expired ? 'bp-row-expired' : ''}>
+            <td className="bp-label">
+              <input className="bp-label-input" type="text" value={row.label}
+                placeholder="Expense name"
+                onChange={e => setListItem(section, row.id, 'label', e.target.value)} />
+            </td>
+            <td className="bp-input-cell">
+              <AmountInput value={row.amount}
+                onChange={v => setListItem(section, row.id, 'amount', v)} />
+            </td>
+            <td className="bp-pct-cell bp-muted">
+              {expired
+                ? <span className="bills-expired-badge">Expired</span>
+                : pct(monthly, combinedTakeHome)}
+            </td>
+            <td className="bp-delete-cell">
+              <button className="bp-delete" onClick={() => deleteRow(section, row.id)}>×</button>
+            </td>
+          </tr>
+          <tr className="bp-row-meta-tr">
+            <td colSpan={4} className="bp-row-meta-td">
+              <div className="bp-row-meta-bar">
+                <label className="bp-meta-check-label">
+                  <input type="checkbox" checked={!!row.recurring}
+                    onChange={e => setListItem(section, row.id, 'recurring', e.target.checked)} />
+                  Recurring
+                </label>
+                {row.recurring && (
+                  <select className="bp-meta-select" value={row.frequency || 'Monthly'}
+                    onChange={e => setListItem(section, row.id, 'frequency', e.target.value)}>
+                    {FREQUENCIES.map(f => <option key={f}>{f}</option>)}
+                  </select>
+                )}
+                {row.recurring && row.frequency !== 'Monthly' && (
+                  <span className="bp-meta-monthly-hint">{fmt(monthly)}/mo</span>
+                )}
+                <span className="bp-meta-end-label">End date</span>
+                <input type="date" className="bp-meta-date"
+                  value={row.endDate || ''}
+                  onChange={e => setListItem(section, row.id, 'endDate', e.target.value)} />
+                {expiring && !expired && (
+                  <span className="bp-expiring-badge">⚠ expires {row.endDate}</span>
+                )}
+                {expired && (
+                  <span className="bp-expired-note">ended {row.endDate}</span>
+                )}
+              </div>
+            </td>
+          </tr>
+        </Fragment>
+      )
+    })
   }
 
   return (
@@ -409,13 +567,17 @@ export default function BudgetPlanner({ household, earnerView }) {
             <EarnerIncome title={p1} color="#6366f1"
               data={budget.earner1}
               onChange={(f, v) => setEarnerField('earner1', f, v)}
-              workDays={workDays} />
+              workDays={workDays}
+              equityFromGrants={equityAnnualP1}
+              onSyncEquity={() => setEarnerField('earner1', 'equityTarget', Math.round(equityAnnualP1))} />
           )}
           {showP2 && (
             <EarnerIncome title={p2} color="#ec4899"
               data={budget.earner2}
               onChange={(f, v) => setEarnerField('earner2', f, v)}
-              workDays={workDays} />
+              workDays={workDays}
+              equityFromGrants={equityAnnualP2}
+              onSyncEquity={() => setEarnerField('earner2', 'equityTarget', Math.round(equityAnnualP2))} />
           )}
         </div>
 
@@ -433,23 +595,7 @@ export default function BudgetPlanner({ household, earnerView }) {
         <p className="bp-subtitle">Recurring household bills — shared between earners.</p>
         <table className="bp-table">
           <tbody>
-            {budget.fixedExpenses.map(row => (
-              <tr key={row.id}>
-                <td className="bp-label">
-                  <input className="bp-label-input" type="text" value={row.label}
-                    placeholder="Expense name"
-                    onChange={e => setListItem('fixedExpenses', row.id, 'label', e.target.value)} />
-                </td>
-                <td className="bp-input-cell">
-                  <AmountInput value={row.amount}
-                    onChange={v => setListItem('fixedExpenses', row.id, 'amount', v)} />
-                </td>
-                <td className="bp-pct-cell bp-muted">{pct(row.amount, combinedTakeHome)}</td>
-                <td className="bp-delete-cell">
-                  <button className="bp-delete" onClick={() => deleteRow('fixedExpenses', row.id)}>×</button>
-                </td>
-              </tr>
-            ))}
+            {renderExpenseRows('fixedExpenses')}
           </tbody>
           <tfoot>
             <tr><td colSpan={4}><button className="bp-add-row" onClick={() => addRow('fixedExpenses')}>+ Add row</button></td></tr>
@@ -469,23 +615,7 @@ export default function BudgetPlanner({ household, earnerView }) {
         <p className="bp-subtitle">Variable household spending you control month to month.</p>
         <table className="bp-table">
           <tbody>
-            {budget.discretionary.map(row => (
-              <tr key={row.id}>
-                <td className="bp-label">
-                  <input className="bp-label-input" type="text" value={row.label}
-                    placeholder="Expense name"
-                    onChange={e => setListItem('discretionary', row.id, 'label', e.target.value)} />
-                </td>
-                <td className="bp-input-cell">
-                  <AmountInput value={row.amount}
-                    onChange={v => setListItem('discretionary', row.id, 'amount', v)} />
-                </td>
-                <td className="bp-pct-cell bp-muted">{pct(row.amount, combinedTakeHome)}</td>
-                <td className="bp-delete-cell">
-                  <button className="bp-delete" onClick={() => deleteRow('discretionary', row.id)}>×</button>
-                </td>
-              </tr>
-            ))}
+            {renderExpenseRows('discretionary')}
           </tbody>
           <tfoot>
             <tr><td colSpan={4}><button className="bp-add-row" onClick={() => addRow('discretionary')}>+ Add row</button></td></tr>

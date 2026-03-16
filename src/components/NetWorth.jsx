@@ -5,8 +5,10 @@ import {
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 
-const NW_KEY    = 'finance_networth'
-const LOANS_KEY = 'finance_loans'
+const NW_KEY      = 'finance_networth'
+const LOANS_KEY   = 'finance_loans'
+const ESPP_KEY    = 'espp_data'
+const RENTALS_KEY = 'finance_rentals'
 
 const CATEGORIES = ['Retirement', 'Savings', 'Investments', 'Real Estate', 'Vehicles', 'Other']
 const CATEGORY_COLORS = {
@@ -40,6 +42,29 @@ function loadLoans() {
     const s = localStorage.getItem(LOANS_KEY)
     return s ? JSON.parse(s) : []
   } catch { return [] }
+}
+
+function loadEsppData() {
+  try {
+    const s = localStorage.getItem(ESPP_KEY)
+    return s ? JSON.parse(s) : null
+  } catch { return null }
+}
+
+function loadRentals() {
+  try {
+    const s = localStorage.getItem(RENTALS_KEY)
+    return s ? JSON.parse(s) : []
+  } catch { return [] }
+}
+
+function calcRentalEquity(rentals) {
+  if (!rentals?.length) return null
+  const totalValue    = rentals.reduce((s, p) => s + (p.propertyValue   || 0), 0)
+  const totalMortgage = rentals.reduce((s, p) => s + (p.mortgageBalance || 0), 0)
+  const totalEquity   = totalValue - totalMortgage
+  if (totalValue === 0) return null
+  return { totalValue, totalMortgage, totalEquity, count: rentals.length }
 }
 
 // Remaining loan balance after `years` of payments using the exact amortization formula
@@ -77,12 +102,18 @@ function fmtFull(n) {
 const PROJ_YEARS = [1, 5, 10, 20, 30]
 
 export default function NetWorth() {
-  const [accounts, setAccounts] = useState(load)
-  const [loans, setLoans]       = useState(loadLoans)
+  const [accounts,  setAccounts]  = useState(load)
+  const [loans,     setLoans]     = useState(loadLoans)
+  const [esppData,  setEsppData]  = useState(loadEsppData)
+  const [rentals,   setRentals]   = useState(loadRentals)
 
-  // Re-read loans whenever this tab is focused (in case user edited them)
+  // Re-read loans, ESPP, and rentals whenever this tab is focused
   useEffect(() => {
-    function onFocus() { setLoans(loadLoans()) }
+    function onFocus() {
+      setLoans(loadLoans())
+      setEsppData(loadEsppData())
+      setRentals(loadRentals())
+    }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
@@ -103,8 +134,45 @@ export default function NetWorth() {
   }
   function del(id) { setAccounts(p => p.filter(a => a.id !== id)) }
 
-  const totalAssets       = useMemo(() => accounts.reduce((s, a) => s + a.balance, 0), [accounts])
-  const totalLiabilities  = useMemo(() => loans.reduce((s, l) => s + (l.balance || 0), 0), [loans])
+  // Compute current value of all ESPP lots using the saved current price
+  const esppHoldings = useMemo(() => {
+    if (!esppData?.purchases?.length) return null
+    const currentPrice = parseFloat(esppData.currentPrice) || 0
+    if (!currentPrice) return null
+    const { plan, purchases } = esppData
+    let totalValue = 0
+    let totalCost  = 0
+    purchases.forEach(lot => {
+      const base = plan.lookback
+        ? Math.min(lot.fmvStart || 0, lot.fmvPurchase || 0)
+        : (lot.fmvPurchase || 0)
+      const pp     = base * (1 - (plan.discount || 0) / 100)
+      const shares = pp > 0 ? (lot.totalContributions || 0) / pp : 0
+      totalValue += shares * currentPrice
+      totalCost  += lot.totalContributions || 0
+    })
+    return {
+      total:      +totalValue.toFixed(2),
+      cost:       +totalCost.toFixed(2),
+      unrealized: +(totalValue - totalCost).toFixed(2),
+      currentPrice,
+      lotCount: purchases.length,
+      companyName: plan.companyName || '',
+      ticker:      plan.ticker || '',
+    }
+  }, [esppData])
+
+  const rentalSummary = useMemo(() => calcRentalEquity(rentals), [rentals])
+
+  const totalAssets       = useMemo(() =>
+    accounts.reduce((s, a) => s + a.balance, 0)
+    + (esppHoldings?.total   ?? 0)
+    + (rentalSummary?.totalValue ?? 0)
+  , [accounts, esppHoldings, rentalSummary])
+  const totalLiabilities  = useMemo(() =>
+    loans.reduce((s, l) => s + (l.balance || 0), 0)
+    + (rentalSummary?.totalMortgage ?? 0)
+  , [loans, rentalSummary])
   const netWorth          = totalAssets - totalLiabilities
 
   const categoryTotals = useMemo(() => {
@@ -236,6 +304,85 @@ export default function NetWorth() {
           </div>
         </div>
       </div>
+
+      {/* ESPP Holdings — read-only, sourced from ESPP tab */}
+      {esppHoldings && (
+        <div className="card nw-card">
+          <div className="nw-liab-header">
+            <div>
+              <h2>ESPP Holdings</h2>
+              <p className="bp-subtitle">
+                {esppHoldings.companyName
+                  ? `${esppHoldings.companyName}${esppHoldings.ticker ? ' · ' + esppHoldings.ticker.toUpperCase() : ''} · `
+                  : ''}
+                {esppHoldings.lotCount} lot{esppHoldings.lotCount !== 1 ? 's' : ''} · at ${esppHoldings.currentPrice.toFixed(2)}/share · Edit in ESPP tab
+              </p>
+            </div>
+            <div className="nw-liab-total">
+              <span className="nw-total-label">Total Value</span>
+              <span className="nw-total-val" style={{ color: '#6366f1' }}>{fmtFull(esppHoldings.total)}</span>
+            </div>
+          </div>
+          <div className="nw-espp-summary">
+            <div className="nw-espp-stat">
+              <span className="nw-total-label">Total Cost Basis</span>
+              <span className="nw-espp-val">{fmtFull(esppHoldings.cost)}</span>
+            </div>
+            <div className="nw-espp-stat">
+              <span className="nw-total-label">Unrealized Gain / Loss</span>
+              <span className="nw-espp-val" style={{ color: esppHoldings.unrealized >= 0 ? '#10b981' : '#ef4444' }}>
+                {esppHoldings.unrealized >= 0 ? '+' : ''}{fmtFull(esppHoldings.unrealized)}
+              </span>
+            </div>
+            <div className="nw-espp-stat">
+              <span className="nw-total-label">Return</span>
+              <span className="nw-espp-val" style={{ color: esppHoldings.unrealized >= 0 ? '#10b981' : '#ef4444' }}>
+                {esppHoldings.cost > 0
+                  ? `${((esppHoldings.unrealized / esppHoldings.cost) * 100).toFixed(1)}%`
+                  : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rental Properties — read-only, sourced from Rentals tab */}
+      {rentalSummary && (
+        <div className="card nw-card">
+          <div className="nw-liab-header">
+            <div>
+              <h2>Rental Properties</h2>
+              <p className="bp-subtitle">
+                {rentalSummary.count} propert{rentalSummary.count !== 1 ? 'ies' : 'y'} · Edit in Rentals tab
+              </p>
+            </div>
+            <div className="nw-liab-total">
+              <span className="nw-total-label">Net Equity</span>
+              <span className="nw-total-val" style={{ color: '#6366f1' }}>{fmtFull(rentalSummary.totalEquity)}</span>
+            </div>
+          </div>
+          <div className="nw-espp-summary">
+            <div className="nw-espp-stat">
+              <span className="nw-total-label">Total Property Value</span>
+              <span className="nw-espp-val">{fmtFull(rentalSummary.totalValue)}</span>
+            </div>
+            <div className="nw-espp-stat">
+              <span className="nw-total-label">Mortgage Debt</span>
+              <span className="nw-espp-val" style={{ color: '#ef4444' }}>
+                {rentalSummary.totalMortgage > 0 ? `−${fmtFull(rentalSummary.totalMortgage)}` : '$0'}
+              </span>
+            </div>
+            <div className="nw-espp-stat">
+              <span className="nw-total-label">LTV Ratio</span>
+              <span className="nw-espp-val">
+                {rentalSummary.totalValue > 0
+                  ? `${((rentalSummary.totalMortgage / rentalSummary.totalValue) * 100).toFixed(0)}%`
+                  : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Liabilities from Loans page */}
       {loans.length > 0 && (
