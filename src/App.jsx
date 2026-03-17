@@ -202,7 +202,7 @@ export default function App() {
 
   // ── Auth state listener — single source of truth ──────────
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         // Clear all local data on sign out so the next user starts clean
         localStorage.clear()
@@ -221,7 +221,7 @@ export default function App() {
         initializingRef.current = true
         setUser(session.user)
         setAuthState('loading')
-        await initApp()
+        initApp()  // no await
         return
       }
 
