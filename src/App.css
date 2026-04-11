@@ -6122,3 +6122,723 @@ th.cf-bal-sep {
 .app.dark .user-menu-signout:hover { background: rgba(239,68,68,.15); }
 .app.dark .welcome-banner { background: rgba(99,102,241,.12); border-color: rgba(99,102,241,.3); }
 .app.dark .welcome-banner-content { color: #a5b4fc; }
+
+/* ── Collapsible nav groups ──────────────────────────────── */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.nav-group-header {
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.15s, color 0.15s;
+  margin-top: 6px;
+}
+
+.nav-group-header:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.nav-group-header.child-active {
+  color: var(--primary);
+}
+
+.nav-chevron {
+  font-size: 0.65rem;
+  opacity: 0.6;
+}
+
+.nav-group-children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+  margin-left: 12px;
+  margin-bottom: 4px;
+}
+
+.nav-child {
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-child.active {
+  background: #eef2ff;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.nav-child:hover:not(.active) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app.dark .nav-child.active { background: rgba(99,102,241,.18); }
+.app.dark .nav-group-header.child-active { color: #a5b4fc; }
+
+/* ── Sub-tab bar (Cash Flow & Budget toggles) ────────────── */
+.sub-tab-bar {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  width: fit-content;
+  margin-bottom: 4px;
+}
+
+.sub-tab-bar button {
+  padding: 6px 18px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sub-tab-bar button.active {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+}
+
+.sub-tab-bar button:hover:not(.active) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── Health Score header button ──────────────────────────── */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.health-score-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.health-score-btn:hover {
+  background: #fefce8;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+
+.app.dark .health-score-btn:hover {
+  background: rgba(251,191,36,.12);
+  border-color: #fbbf24;
+  color: #fcd34d;
+}
+
+/* ── Floating action buttons ─────────────────────────────── */
+.fab-group {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+}
+
+.fab {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+}
+
+.fab-add {
+  background: var(--primary);
+  color: white;
+  font-size: 1.6rem;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.fab-sage {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.fab-sage.active {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.app.dark .fab-sage { background: var(--surface); }
+.app.dark .fab-sage.active { background: rgba(99,102,241,.2); border-color: rgba(99,102,241,.4); }
+
+/* ── Sage drawer ─────────────────────────────────────────── */
+.sage-drawer {
+  position: fixed;
+  bottom: 100px;
+  right: 28px;
+  width: 400px;
+  max-height: calc(100vh - 140px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 99;
+  overflow: hidden;
+}
+
+.sage-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sage-drawer-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sage-drawer-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.sage-drawer-close:hover { background: var(--bg); }
+
+.sage-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Modal overlay (Health Score + Add Transaction) ──────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+
+.modal-panel {
+  position: relative;
+  background: var(--bg);
+  border-radius: 16px;
+  max-width: 760px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 28px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  border: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  z-index: 1;
+}
+
+.modal-close:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.app.dark .modal-panel { background: var(--surface); }
+.app.dark .modal-close { background: var(--bg); }
+
+/* ── Spending Mode Card ──────────────────────────────────── */
+.spending-mode-card {
+  padding: 16px 20px;
+}
+
+.spending-mode-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.spending-mode-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.spending-mode-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  max-width: 480px;
+}
+
+.spending-mode-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.spending-mode-btn {
+  padding: 7px 18px;
+  border: none;
+  background: transparent;
+  font-size: 0.83rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.spending-mode-btn + .spending-mode-btn {
+  border-left: 1px solid var(--border);
+}
+
+.spending-mode-btn.active {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+}
+
+.spending-mode-btn:hover:not(.active) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.spending-mode-amount {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spending-mode-input-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.spending-mode-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  max-width: 420px;
+}
+
+/* Locked field display in LongTermCashFlow */
+.lt-mode-locked {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  padding: 5px 10px;
+  width: fit-content;
+}
+
+.app.dark .lt-mode-locked {
+  background: rgba(99,102,241,.15);
+  border-color: rgba(99,102,241,.3);
+}
+
+/* ── Dashboard ───────────────────────────────────────────── */
+.db-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Row 1: Summary cards */
+.db-summary-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.db-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--card-accent, var(--primary));
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow);
+}
+
+.db-summary-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.db-summary-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.db-summary-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Row 2: Trend chart */
+.db-trend-card {
+  padding: 20px 24px 16px;
+}
+
+.db-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.db-trend-legend {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.db-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+/* Row 3: Widgets */
+.db-widgets-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.db-widget {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.db-widget-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.db-widget-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.db-widget-big {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.db-widget-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Progress bar */
+.db-progress-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.db-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.db-widget-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Bills list */
+.db-bill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.db-bill-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.db-bill-name {
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-bill-meta {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.db-bill-amount {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Goals list */
+.db-goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.db-goal-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.db-goal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.db-goal-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.db-goal-pct {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.db-goal-amounts {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.db-goal-target { color: var(--text-muted); }
+
+/* Row 4: Recent activity */
+.db-recent-card {
+  padding: 20px 24px;
+}
+
+.db-recent-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.db-recent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.db-recent-row:last-child { border-bottom: none; }
+
+.db-recent-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.db-recent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.db-recent-dot.income  { background: #10b981; }
+.db-recent-dot.expense { background: #ef4444; }
+
+.db-recent-left > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.db-recent-desc {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-recent-cat {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.db-recent-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.db-recent-amount {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.db-recent-amount.income  { color: #059669; }
+.db-recent-amount.expense { color: #ef4444; }
+
+.db-recent-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.db-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .db-summary-row { grid-template-columns: repeat(2, 1fr); }
+  .db-widgets-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 540px) {
+  .db-summary-row { grid-template-columns: 1fr; }
+}

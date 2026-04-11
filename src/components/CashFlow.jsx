@@ -169,7 +169,7 @@ function earnerSavings(earnerData) {
   return retirementSavings + otherSavings
 }
 
-export default function CashFlow({ transactions, earnerView, household }) {
+export default function CashFlow({ transactions, earnerView, household, spendingMode }) {
   const [balances,   setBalances]   = useState(loadBalances)
   const [bonusMode,  setBonusMode]  = useState(() => localStorage.getItem(BONUS_MODE_KEY)  || 'lump_sum')
   const [bonusMonth, setBonusMonth] = useState(() => parseInt(localStorage.getItem(BONUS_MONTH_KEY)) || 3)
@@ -280,7 +280,9 @@ export default function CashFlow({ transactions, earnerView, household }) {
     }
 
     const fixed         = (budget.fixedExpenses ?? []).reduce((s, r) => s + (r.amount || 0), 0)
-    const discretionary = (budget.discretionary  ?? []).reduce((s, r) => s + (r.amount || 0), 0)
+    const discretionary = spendingMode?.mode === 'simple'
+      ? (spendingMode?.monthly || 0)
+      : (budget.discretionary ?? []).reduce((s, r) => s + (r.amount || 0), 0)
     const loans         = readLoans()
     const loanPayments  = loans.reduce((s, l) => s + loanMonthlyPayment(l), 0)
 
@@ -322,7 +324,7 @@ export default function CashFlow({ transactions, earnerView, household }) {
         net:            +(totalIncome - totalFixed - discretionary - esppContrib).toFixed(2),
       }
     })
-  }, [earnerView, bonusMode, bonusMonth])
+  }, [earnerView, bonusMode, bonusMonth, spendingMode])
 
   // ── Summary stats ─────────────────────────────────────────
   const histStats = useMemo(() => {

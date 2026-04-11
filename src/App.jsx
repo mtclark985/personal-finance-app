@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import TransactionForm from './components/TransactionForm'
 import TransactionList from './components/TransactionList'
-import MonthlySummary from './components/MonthlySummary'
 import SpendingChart from './components/SpendingChart'
+import Dashboard from './components/Dashboard'
 import BudgetPlanner from './components/BudgetPlanner'
 import NetWorth from './components/NetWorth'
 import Loans from './components/Loans'
@@ -30,6 +30,69 @@ import {
   syncAllFromCloud, getAppData, setAppData,
 } from './lib/db'
 import './App.css'
+
+function loadSpendingMode() {
+  try {
+    const s = localStorage.getItem('spending_mode_cfg')
+    if (s) return { mode: 'detailed', monthly: 1500, ...JSON.parse(s) }
+  } catch {}
+  return { mode: 'detailed', monthly: 1500 }
+}
+
+function SpendingModeCard({ mode, monthly, onChange }) {
+  return (
+    <div className="card spending-mode-card">
+      <div className="spending-mode-header">
+        <div>
+          <h3 className="spending-mode-title">Spending Tracking</h3>
+          <p className="spending-mode-desc">
+            {mode === 'simple'
+              ? 'Using a monthly lump sum for discretionary spending. Cash flow forecasts use this amount.'
+              : 'Tracking individual transactions. Cash flow forecasts use your budget line items.'}
+          </p>
+        </div>
+        <div className="spending-mode-toggle">
+          <button
+            className={`spending-mode-btn${mode === 'detailed' ? ' active' : ''}`}
+            onClick={() => onChange({ mode: 'detailed' })}
+          >
+            Detailed
+          </button>
+          <button
+            className={`spending-mode-btn${mode === 'simple' ? ' active' : ''}`}
+            onClick={() => onChange({ mode: 'simple' })}
+          >
+            Simple
+          </button>
+        </div>
+      </div>
+      {mode === 'simple' && (
+        <div className="spending-mode-amount">
+          <label className="rc-label">Monthly discretionary budget</label>
+          <div className="spending-mode-input-row">
+            <div className="nw-num-wrap">
+              <span className="nw-prefix">$</span>
+              <input
+                className="nw-num-input"
+                type="number"
+                min="0"
+                step="50"
+                style={{ width: '120px' }}
+                value={monthly || ''}
+                placeholder="0"
+                onChange={e => onChange({ monthly: parseFloat(e.target.value) || 0 })}
+              />
+              <span className="nw-suffix">/month</span>
+            </div>
+            <p className="spending-mode-hint">
+              Covers all discretionary spending beyond your tracked bills. Flows into Cash Flow forecasts automatically.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const STORAGE_KEY = 'finance_transactions'
 
@@ -118,7 +181,6 @@ function getCurrentYearMonth() {
   return { year: now.getFullYear(), month: now.getMonth() + 1 }
 }
 
-// Editable earner name inside the toggle buttons
 function EditableName({ value, onSave }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft]     = useState(value)
@@ -152,6 +214,40 @@ function EditableName({ value, onSave }) {
   )
 }
 
+const NAV = [
+  { key: 'dashboard',    label: 'Dashboard'      },
+  { key: 'transactions', label: 'Transactions'   },
+  { key: 'cashflow',     label: 'Cash Flow'      },
+  { key: 'budget',       label: 'Budget & Bills' },
+  { key: 'networth',     label: 'Net Worth'      },
+  {
+    key: 'investments-group', label: 'Investments', group: true,
+    children: [
+      { key: 'investments', label: 'Portfolio'     },
+      { key: 'espp',        label: 'ESPP'          },
+      { key: 'equity',      label: 'Equity'        },
+      { key: 'rentals',     label: 'Rentals'       },
+      { key: 'passive',     label: 'Passive Income'},
+    ]
+  },
+  {
+    key: 'planning-group', label: 'Planning', group: true,
+    children: [
+      { key: 'retirement', label: 'Retirement'    },
+      { key: 'tax',        label: 'Tax Estimator' },
+      { key: 'emergency',  label: 'Emergency Fund'},
+      { key: 'goals',      label: 'Savings Goals' },
+    ]
+  },
+  {
+    key: 'debt-group', label: 'Debt', group: true,
+    children: [
+      { key: 'loans',      label: 'Loans'      },
+      { key: 'debtpayoff', label: 'Debt Payoff'},
+    ]
+  },
+]
+
 export default function App() {
   const { household, setHousehold } = useHousehold()
   const [transactions, setTransactions] = useState([])
@@ -162,26 +258,47 @@ export default function App() {
   const [earnerView,   setEarnerView]   = useState('combined')
   const [darkMode,     setDarkMode]     = useState(() => localStorage.getItem('sage_darkmode') === 'true')
 
+  // Spending mode
+  const [spendingMode, setSpendingMode] = useState(loadSpendingMode)
+
+  function updateSpendingMode(updates) {
+    setSpendingMode(prev => {
+      const next = { ...prev, ...updates }
+      localStorage.setItem('spending_mode_cfg', JSON.stringify(next))
+      setAppData('spending_mode', next).catch(console.error)
+      return next
+    })
+  }
+
+  // Nav group state — all groups open by default
+  const [openGroups, setOpenGroups] = useState(
+    () => new Set(['investments-group', 'planning-group', 'debt-group'])
+  )
+
+  // Merged view sub-tabs
+  const [cashflowView, setCashflowView] = useState('current')  // 'current' | 'longterm'
+  const [budgetView,   setBudgetView]   = useState('budget')   // 'budget' | 'bills'
+
+  // Overlays
+  const [sageOpen,   setSageOpen]   = useState(false)
+  const [healthOpen, setHealthOpen] = useState(false)
+  const [addOpen,    setAddOpen]    = useState(false)
+
   // Auth state
-  const [authState,  setAuthState]  = useState('loading') // 'loading' | 'landing' | 'auth' | 'app'
-  const [authView,   setAuthView]   = useState('login')   // 'login' | 'signup'
+  const [authState,  setAuthState]  = useState('loading')
+  const [authView,   setAuthView]   = useState('login')
   const [user,       setUser]       = useState(null)
   const [isNewUser,  setIsNewUser]  = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
 
-  // Prevent double-initialization when INITIAL_SESSION + SIGNED_IN both fire
   const initializingRef = useRef(false)
 
-  // ── Initialize app for a logged-in user ───────────────────
   async function initApp() {
     try {
       await syncAllFromCloud()
       const txs = await fetchTransactions()
-
-      // Check if this user has been initialized before
       const initialized = await getAppData('user_initialized')
       if (!initialized) {
-        // Brand new user — seed sample data so they see a populated app
         await setAppData('user_initialized', true)
         await Promise.all(SAMPLE_TRANSACTIONS.map(tx => upsertTransaction(tx)))
         setTransactions(SAMPLE_TRANSACTIONS)
@@ -200,11 +317,9 @@ export default function App() {
     }
   }
 
-  // ── Auth state listener — single source of truth ──────────
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        // Clear all local data on sign out so the next user starts clean
         localStorage.clear()
         setUser(null)
         setTransactions([])
@@ -215,22 +330,18 @@ export default function App() {
         setAuthState('landing')
         return
       }
-
       if (session && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
         if (initializingRef.current) return
         initializingRef.current = true
         setUser(session.user)
         setAuthState('loading')
-        initApp()  // no await
+        initApp()
         return
       }
-
-      // INITIAL_SESSION with no session → show landing
       if (event === 'INITIAL_SESSION' && !session) {
         setAuthState('landing')
       }
     })
-
     return () => subscription.unsubscribe()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -239,7 +350,6 @@ export default function App() {
     localStorage.setItem('sage_darkmode', darkMode)
   }, [darkMode])
 
-  // Close user menu on outside click
   useEffect(() => {
     if (!showUserMenu) return
     function handler(e) {
@@ -249,10 +359,40 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showUserMenu])
 
+  // Close sage drawer on outside click
+  useEffect(() => {
+    if (!sageOpen) return
+    function handler(e) {
+      if (!e.target.closest('.sage-drawer') && !e.target.closest('.fab-sage')) {
+        setSageOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [sageOpen])
+
+  function toggleGroup(key) {
+    setOpenGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function navigateTo(key) {
+    setActiveTab(key)
+    // Auto-open parent group when navigating to a child
+    NAV.forEach(item => {
+      if (item.group && item.children?.some(c => c.key === key)) {
+        setOpenGroups(prev => new Set([...prev, item.key]))
+      }
+    })
+  }
+
   async function signOut() {
     setShowUserMenu(false)
     await supabase.auth.signOut()
-    // SIGNED_OUT event handled above
   }
 
   async function addTransaction(tx) {
@@ -274,13 +414,11 @@ export default function App() {
     }
   }
 
-  // Month-filtered transactions
   const filtered = useMemo(() => transactions.filter(tx => {
     const d = new Date(tx.date)
     return d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth
   }), [transactions, filterYear, filterMonth])
 
-  // Earner-filtered view of the current month
   const viewFiltered = useMemo(() => {
     if (earnerView === 'combined') return filtered
     return filtered.filter(tx => !tx.earner || tx.earner === 'joint' || tx.earner === earnerView)
@@ -302,30 +440,6 @@ export default function App() {
   const MONTH_NAMES = [
     'January','February','March','April','May','June',
     'July','August','September','October','November','December',
-  ]
-
-  const TABS = [
-    { key: 'advisor',      label: '💬 Sage'            },
-    { key: 'health',       label: '⭐ Score'           },
-    { key: 'dashboard',    label: 'Dashboard'          },
-    { key: 'cashflow',     label: 'Cash Flow'          },
-    { key: 'longterm',     label: 'Long-Term'          },
-    { key: 'transactions', label: 'Transactions'       },
-    { key: 'budget',       label: 'Income & Expenses'  },
-    { key: 'retirement',   label: 'Retirement'         },
-    { key: 'tax',          label: 'Taxes'              },
-    { key: 'emergency',    label: 'Emergency'          },
-    { key: 'bills',        label: 'Bills'              },
-    { key: 'goals',        label: 'Goals'              },
-    { key: 'investments',  label: 'Investments'        },
-    { key: 'espp',         label: 'ESPP'               },
-    { key: 'equity',       label: 'Equity'             },
-    { key: 'rentals',      label: 'Rentals'            },
-    { key: 'passive',      label: 'Passive'            },
-    { key: 'debtpayoff',   label: 'Debt Payoff'        },
-    { key: 'networth',     label: 'Net Worth'          },
-    { key: 'loans',        label: 'Loans'              },
-    { key: 'add',          label: '+ Add'              },
   ]
 
   const showMonthSelector = ['dashboard', 'transactions'].includes(activeTab)
@@ -360,8 +474,6 @@ export default function App() {
     )
   }
 
-  // ── Main app ───────────────────────────────────────────────
-
   if (!dbReady) {
     return (
       <div className="app-loading">
@@ -383,15 +495,45 @@ export default function App() {
         </div>
 
         <nav className="tab-nav">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              className={activeTab === t.key ? 'active' : ''}
-              onClick={() => setActiveTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
+          {NAV.map(item => {
+            if (item.group) {
+              const isOpen = openGroups.has(item.key)
+              const isChildActive = item.children.some(c => c.key === activeTab)
+              return (
+                <div key={item.key} className="nav-group">
+                  <button
+                    className={`nav-group-header${isChildActive ? ' child-active' : ''}`}
+                    onClick={() => toggleGroup(item.key)}
+                  >
+                    <span>{item.label}</span>
+                    <span className="nav-chevron">{isOpen ? '▴' : '▾'}</span>
+                  </button>
+                  {isOpen && (
+                    <div className="nav-group-children">
+                      {item.children.map(child => (
+                        <button
+                          key={child.key}
+                          className={`nav-child${activeTab === child.key ? ' active' : ''}`}
+                          onClick={() => navigateTo(child.key)}
+                        >
+                          {child.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            }
+            return (
+              <button
+                key={item.key}
+                className={activeTab === item.key ? 'active' : ''}
+                onClick={() => navigateTo(item.key)}
+              >
+                {item.label}
+              </button>
+            )
+          })}
         </nav>
 
         <button className="dark-toggle" onClick={() => setDarkMode(d => !d)}>
@@ -450,32 +592,36 @@ export default function App() {
             )}
           </div>
 
-          {/* User menu */}
-          <div className="user-menu-wrap">
-            <button
-              className="user-menu-btn"
-              onClick={() => setShowUserMenu(v => !v)}
-              title={user?.email}
-            >
-              <span className="user-avatar">
-                {(user?.email?.[0] ?? '?').toUpperCase()}
-              </span>
-              <span className="user-email-label">{user?.email}</span>
-              <span className="user-menu-chevron">{showUserMenu ? '▲' : '▼'}</span>
+          <div className="header-right">
+            <button className="health-score-btn" onClick={() => setHealthOpen(true)} title="Financial Health Score">
+              ⭐ Score
             </button>
 
-            {showUserMenu && (
-              <div className="user-menu-dropdown">
-                <div className="user-menu-email">{user?.email}</div>
-                <button className="user-menu-signout" onClick={signOut}>
-                  Sign Out
-                </button>
-              </div>
-            )}
+            <div className="user-menu-wrap">
+              <button
+                className="user-menu-btn"
+                onClick={() => setShowUserMenu(v => !v)}
+                title={user?.email}
+              >
+                <span className="user-avatar">
+                  {(user?.email?.[0] ?? '?').toUpperCase()}
+                </span>
+                <span className="user-email-label">{user?.email}</span>
+                <span className="user-menu-chevron">{showUserMenu ? '▲' : '▼'}</span>
+              </button>
+
+              {showUserMenu && (
+                <div className="user-menu-dropdown">
+                  <div className="user-menu-email">{user?.email}</div>
+                  <button className="user-menu-signout" onClick={signOut}>
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
-        {/* Welcome banner for new users */}
         {isNewUser && (
           <div className="welcome-banner">
             <div className="welcome-banner-content">
@@ -490,56 +636,141 @@ export default function App() {
         )}
 
         <main className="app-main">
-          {activeTab === 'advisor' && <AIAdvisor transactions={transactions} />}
-          {activeTab === 'health' && <FinancialHealthScore />}
-
           {activeTab === 'dashboard' && (
-            <div className="dashboard">
-              <MonthlySummary transactions={viewFiltered} year={filterYear} month={filterMonth}
-                earnerView={earnerView} household={household} />
-              <SpendingChart transactions={viewFiltered} />
-            </div>
-          )}
-
-          {activeTab === 'cashflow' && (
-            <CashFlow transactions={transactions} earnerView={earnerView} household={household} />
-          )}
-
-          {activeTab === 'longterm' && (
-            <LongTermCashFlow transactions={transactions} />
-          )}
-
-          {activeTab === 'transactions' && (
-            <TransactionList
-              transactions={viewFiltered}
-              onDelete={deleteTransaction}
-              household={household}
+            <Dashboard
+              transactions={transactions}
+              filtered={viewFiltered}
+              year={filterYear}
+              month={filterMonth}
             />
           )}
 
-          {activeTab === 'budget'     && <BudgetPlanner household={household} earnerView={earnerView} />}
-          {activeTab === 'retirement' && <RetirementCalc household={household} earnerView={earnerView} />}
-          {activeTab === 'tax'        && <TaxEstimator household={household} earnerView={earnerView} />}
-          {activeTab === 'emergency'   && <EmergencyFund />}
-          {activeTab === 'bills'       && <Bills />}
-          {activeTab === 'goals'       && <SavingsGoals />}
+          {activeTab === 'cashflow' && (
+            <>
+              <div className="sub-tab-bar">
+                <button
+                  className={cashflowView === 'current' ? 'active' : ''}
+                  onClick={() => setCashflowView('current')}
+                >This Month</button>
+                <button
+                  className={cashflowView === 'longterm' ? 'active' : ''}
+                  onClick={() => setCashflowView('longterm')}
+                >Long-Term</button>
+              </div>
+              {cashflowView === 'current'
+                ? <CashFlow transactions={transactions} earnerView={earnerView} household={household} spendingMode={spendingMode} />
+                : <LongTermCashFlow transactions={transactions} spendingMode={spendingMode} />
+              }
+            </>
+          )}
+
+          {activeTab === 'transactions' && (
+            <>
+              <SpendingChart transactions={viewFiltered} />
+              <TransactionList
+                transactions={viewFiltered}
+                onDelete={deleteTransaction}
+                household={household}
+              />
+            </>
+          )}
+
+          {activeTab === 'budget' && (
+            <>
+              <SpendingModeCard
+                mode={spendingMode.mode}
+                monthly={spendingMode.monthly}
+                onChange={updateSpendingMode}
+              />
+              <div className="sub-tab-bar">
+                <button
+                  className={budgetView === 'budget' ? 'active' : ''}
+                  onClick={() => setBudgetView('budget')}
+                >Budget</button>
+                <button
+                  className={budgetView === 'bills' ? 'active' : ''}
+                  onClick={() => setBudgetView('bills')}
+                >Bills</button>
+              </div>
+              {budgetView === 'budget'
+                ? <BudgetPlanner household={household} earnerView={earnerView} />
+                : <Bills />
+              }
+            </>
+          )}
+
+          {activeTab === 'networth'    && <NetWorth />}
           {activeTab === 'investments' && <InvestmentAllocation />}
           {activeTab === 'espp'        && <ESPP />}
           {activeTab === 'equity'      && <Equity />}
           {activeTab === 'rentals'     && <RentalProperties />}
           {activeTab === 'passive'     && <PassiveIncome />}
-          {activeTab === 'debtpayoff'  && <DebtPayoff />}
-          {activeTab === 'networth'    && <NetWorth />}
+          {activeTab === 'retirement'  && <RetirementCalc household={household} earnerView={earnerView} />}
+          {activeTab === 'tax'         && <TaxEstimator household={household} earnerView={earnerView} />}
+          {activeTab === 'emergency'   && <EmergencyFund />}
+          {activeTab === 'goals'       && <SavingsGoals />}
           {activeTab === 'loans'       && <Loans />}
-
-          {activeTab === 'add' && (
-            <TransactionForm
-              household={household}
-              onAdd={tx => { addTransaction(tx); setActiveTab('transactions') }}
-            />
-          )}
+          {activeTab === 'debtpayoff'  && <DebtPayoff />}
         </main>
       </div>
+
+      {/* ── Floating action buttons ── */}
+      <div className="fab-group">
+        <button
+          className={`fab fab-sage${sageOpen ? ' active' : ''}`}
+          onClick={() => setSageOpen(v => !v)}
+          title="Sage AI Advisor"
+        >
+          💬
+        </button>
+        <button
+          className="fab fab-add"
+          onClick={() => setAddOpen(true)}
+          title="Add Transaction"
+        >
+          +
+        </button>
+      </div>
+
+      {/* ── Sage drawer ── */}
+      {sageOpen && (
+        <div className="sage-drawer">
+          <div className="sage-drawer-header">
+            <span className="sage-drawer-title">💬 Sage</span>
+            <button className="sage-drawer-close" onClick={() => setSageOpen(false)}>✕</button>
+          </div>
+          <div className="sage-drawer-body">
+            <AIAdvisor transactions={transactions} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Health Score modal ── */}
+      {healthOpen && (
+        <div className="modal-overlay" onClick={() => setHealthOpen(false)}>
+          <div className="modal-panel" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setHealthOpen(false)}>✕</button>
+            <FinancialHealthScore />
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Transaction modal ── */}
+      {addOpen && (
+        <div className="modal-overlay" onClick={() => setAddOpen(false)}>
+          <div className="modal-panel" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setAddOpen(false)}>✕</button>
+            <TransactionForm
+              household={household}
+              onAdd={tx => {
+                addTransaction(tx)
+                setAddOpen(false)
+                setActiveTab('transactions')
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -235,7 +235,7 @@ function fmt(n) {
 
 // ── Component ──────────────────────────────────────────────
 
-export default function LongTermCashFlow({ transactions }) {
+export default function LongTermCashFlow({ transactions, spendingMode }) {
   const [settings,     setSettings]     = useState(() => loadSettings(transactions))
   const [showSettings, setShowSettings] = useState(false)
 
@@ -282,8 +282,11 @@ export default function LongTermCashFlow({ transactions }) {
       const billsThisMonth = activeBills
         .filter(b => !b.endDate || dateStr <= b.endDate)
         .reduce((sum, b) => sum + billToMonthly(b.amount, b.frequency), 0)
-      // Bills grow with expense inflation; user's monthlyExpenses already includes day-to-day
-      const baseExpenses = (settings.monthlyExpenses + billsThisMonth) * expMult
+      // Simple mode: use the global discretionary lump sum; Detailed: use manually-entered amount
+      const effectiveDiscretionary = spendingMode?.mode === 'simple'
+        ? (spendingMode?.monthly || 0)
+        : settings.monthlyExpenses
+      const baseExpenses = (effectiveDiscretionary + billsThisMonth) * expMult
 
       // Bonus income
       let bonusIncome = 0
@@ -328,7 +331,7 @@ export default function LongTermCashFlow({ transactions }) {
       })
     }
     return result
-  }, [settings, transactions])
+  }, [settings, transactions, spendingMode])
 
   // ── Summary stats ──────────────────────────────────────
   const summary = useMemo(() => {
@@ -420,15 +423,26 @@ export default function LongTermCashFlow({ transactions }) {
               </div>
 
               <div className="rc-field">
-                <label className="rc-label">Monthly Expenses</label>
-                <span className="rc-hint">Avg of last 3 months</span>
-                <div className="nw-num-wrap" style={{ marginTop: '4px' }}>
-                  <span className="nw-prefix">$</span>
-                  <input className="nw-num-input" type="number" min="0" step="100"
-                    style={{ width: '110px' }} value={settings.monthlyExpenses || ''}
-                    placeholder="0"
-                    onChange={e => set('monthlyExpenses', parseFloat(e.target.value) || 0)} />
-                </div>
+                <label className="rc-label">Monthly Discretionary</label>
+                {spendingMode?.mode === 'simple' ? (
+                  <>
+                    <span className="rc-hint">Controlled by Spending Mode</span>
+                    <div className="lt-mode-locked">
+                      ${(spendingMode?.monthly || 0).toLocaleString()}/mo
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="rc-hint">Avg of last 3 months</span>
+                    <div className="nw-num-wrap" style={{ marginTop: '4px' }}>
+                      <span className="nw-prefix">$</span>
+                      <input className="nw-num-input" type="number" min="0" step="100"
+                        style={{ width: '110px' }} value={settings.monthlyExpenses || ''}
+                        placeholder="0"
+                        onChange={e => set('monthlyExpenses', parseFloat(e.target.value) || 0)} />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
