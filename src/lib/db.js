@@ -95,6 +95,7 @@ const KEY_MAP = [
   { cloud: 'rental_properties',        local: 'finance_rentals'               },
   { cloud: 'passive_income',           local: 'finance_passive'               },
   { cloud: 'ai_advisor_history',       local: 'ai_advisor_history'            },
+  { cloud: 'spending_mode',            local: 'spending_mode_cfg'             },
 ]
 
 export async function syncAllFromCloud() {

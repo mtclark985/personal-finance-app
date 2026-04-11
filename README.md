@@ -4,24 +4,16 @@ A personal budgeting and financial planning app built with React and Vite, backe
 
 ## Features
 
-- **Dashboard** — Monthly income/expense summary with spending charts by category
-- **Transactions** — Log and manage income and expense entries
-- **Cash Flow** — Short-term and long-term cash flow projections
-- **Budget Planner** — Plan and compare income vs. expenses by category
-- **Financial Health Score** — Composite score based on your financial data
-- **Retirement Calculator** — Project retirement savings and income
-- **Tax Estimator** — Estimate federal tax liability
-- **Emergency Fund** — Track progress toward your emergency fund target
-- **Bills** — Track recurring bills and upcoming due dates
-- **Savings Goals** — Set and monitor progress toward savings targets
-- **Investment Allocation** — Track and balance your investment portfolio
-- **ESPP & Equity** — Tools for employee stock purchase plans and equity compensation
-- **Rental Properties** — Track rental income and expenses
-- **Passive Income** — Monitor passive income streams
-- **Debt Payoff** — Visualize debt payoff strategies (avalanche/snowball)
-- **Net Worth** — Track assets and liabilities over time
-- **Loans** — Manage loan balances and payments
-- **Sage AI Advisor** — AI-powered financial guidance chat
+- **Dashboard** — Net worth, monthly summary, 6-month income/expense trend, emergency fund status, upcoming bills, savings goal progress, and recent activity — all at a glance
+- **Transactions** — Log and manage income and expense entries with spending breakdown by category
+- **Cash Flow** — Short-term monthly projection and long-term multi-year forecast in one view
+- **Budget & Bills** — Plan income vs. expenses and track recurring bills; toggle between detailed per-transaction tracking or a simple monthly discretionary budget
+- **Net Worth** — Track assets and liabilities with 30-year growth projections
+- **Investments** — Portfolio allocation, ESPP, equity/RSU grants, rental properties, and passive income
+- **Planning** — Retirement calculator, tax estimator, emergency fund tracker, and savings goals
+- **Debt** — Loan management with amortization and debt payoff strategy comparison (avalanche/snowball)
+- **Financial Health Score** — Composite score across all financial dimensions, accessible from the header
+- **Sage AI Advisor** — AI-powered financial guidance available as a slide-out chat on any page
 - **Multi-earner support** — Filter views by household member or combined
 - **Dark mode** — Toggle between light and dark themes
 - **Authentication** — Email/password and Google OAuth via Supabase Auth
