@@ -22,6 +22,7 @@ import RentalProperties from './components/RentalProperties'
 import PassiveIncome from './components/PassiveIncome'
 import AIAdvisor from './components/AIAdvisor'
 import Actuals from './components/Actuals'
+import CSVImport from './components/CSVImport'
 import Landing from './components/Landing'
 import Auth from './components/Auth'
 import { useHousehold } from './context/HouseholdContext'
@@ -286,6 +287,7 @@ export default function App() {
   const [healthOpen, setHealthOpen] = useState(false)
   const [addOpen,    setAddOpen]    = useState(false)
   const [editTx,     setEditTx]     = useState(null)
+  const [csvOpen,    setCsvOpen]    = useState(false)
 
   // Auth state
   const [authState,  setAuthState]  = useState('loading')
@@ -439,6 +441,11 @@ export default function App() {
     ]
     setTransactions(prev => [...prev, ...newTxs])
     await Promise.all(newTxs.map(tx => upsertTransaction(tx).catch(console.error)))
+  }
+
+  async function importTransactions(txs) {
+    setTransactions(prev => [...prev, ...txs])
+    await Promise.all(txs.map(tx => upsertTransaction(tx).catch(console.error)))
   }
 
   async function updateTransaction(tx) {
@@ -773,6 +780,13 @@ export default function App() {
           💬
         </button>
         <button
+          className="fab fab-csv"
+          onClick={() => setCsvOpen(true)}
+          title="Import CSV"
+        >
+          ↑
+        </button>
+        <button
           className="fab fab-add"
           onClick={() => setAddOpen(true)}
           title="Add Transaction"
@@ -833,6 +847,19 @@ export default function App() {
                 updateTransaction(tx)
                 setEditTx(null)
               }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── CSV Import modal ── */}
+      {csvOpen && (
+        <div className="modal-overlay" onClick={() => setCsvOpen(false)}>
+          <div className="modal-panel modal-panel-wide" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setCsvOpen(false)}>✕</button>
+            <CSVImport
+              onImport={txs => { importTransactions(txs) }}
+              onClose={() => setCsvOpen(false)}
             />
           </div>
         </div>

@@ -6624,6 +6624,14 @@ th.cf-bal-sep {
   line-height: 1;
 }
 
+.fab-csv {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
 .fab-sage {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -6713,6 +6721,8 @@ th.cf-bal-sep {
   padding: 28px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.25);
 }
+
+.modal-panel-wide { max-width: 1000px; }
 
 .modal-close {
   position: absolute;
@@ -7153,4 +7163,144 @@ th.cf-bal-sep {
 
 @media (max-width: 540px) {
   .db-summary-row { grid-template-columns: 1fr; }
+}
+
+/* ── CSV Import ──────────────────────────────────────────── */
+
+.csv-import { display: flex; flex-direction: column; gap: 20px; }
+
+.csv-title { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+.csv-sub   { margin: 0; font-size: 13px; color: var(--text-muted); }
+
+.csv-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.csv-dropzone:hover { border-color: var(--primary); background: var(--bg); }
+.csv-drop-icon { font-size: 2rem; }
+.csv-drop-text { font-size: 14px; font-weight: 500; color: var(--text); }
+.csv-drop-hint { font-size: 12px; color: var(--text-muted); }
+.csv-bank-note { font-size: 12px; color: var(--text-muted); margin: 0; }
+.csv-error     { color: #ef4444; font-size: 13px; margin: 0; }
+
+.csv-mapping-grid { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.csv-map-row   { display: flex; align-items: center; gap: 12px; }
+.csv-map-label { width: 180px; flex-shrink: 0; font-size: 13px; font-weight: 500; }
+.csv-required  { color: #ef4444; }
+.csv-map-select {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.csv-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.csv-selected-count { font-size: 13px; color: var(--text-muted); flex: 1; }
+
+.csv-btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.csv-btn-primary:disabled { opacity: 0.5; cursor: default; }
+.csv-btn-primary:hover:not(:disabled) { opacity: 0.88; }
+
+.csv-btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.csv-btn-secondary:hover { background: var(--bg); }
+
+.csv-preview-wrap {
+  max-height: 45vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.csv-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.csv-preview-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.csv-preview-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.csv-preview-table tr:last-child td { border-bottom: none; }
+.csv-row-deselected td { opacity: 0.35; }
+
+.csv-cell-input, .csv-cell-select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+.csv-cell-input:focus, .csv-cell-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--bg);
+}
+.csv-amount-input { text-align: right; width: 80px; }
+
+.csv-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 0;
+  text-align: center;
+}
+.csv-done-icon {
+  font-size: 2.5rem;
+  color: #059669;
+  background: #d1fae5;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
