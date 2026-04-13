@@ -106,8 +106,7 @@ function buildFinancialContext(transactions) {
   // Last 3 months — build per-month summary and category rollup
   const monthMap = {}
   transactions.forEach(tx => {
-    const d   = new Date(tx.date)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const key = tx.date.slice(0, 7)
     if (!monthMap[key]) monthMap[key] = { income: 0, expenses: 0, cats: {} }
     if (tx.type === 'income')  monthMap[key].income   += tx.amount
     if (tx.type === 'expense') {

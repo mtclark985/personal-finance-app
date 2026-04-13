@@ -197,10 +197,9 @@ export default function CashFlow({ transactions, earnerView, household, spending
     let   totalBonus  = 0    // all-time bonus total (spread mode)
 
     txs.forEach(tx => {
-      const d    = new Date(tx.date)
-      const year = d.getFullYear()
-      const key  = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      if (!map[key]) map[key] = { key, year, month: d.getMonth(), income: 0, expenses: 0 }
+      const key  = tx.date.slice(0, 7)
+      const [year, mo] = key.split('-').map(Number)
+      if (!map[key]) map[key] = { key, year, month: mo - 1, income: 0, expenses: 0 }
 
       if (tx.type === 'income' && tx.category === 'Bonus') {
         if (bonusMode === 'spread') {

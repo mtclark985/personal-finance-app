@@ -95,8 +95,8 @@ export default function Dashboard({ transactions, filtered, year, month }) {
     }
     return months.map(({ year: y, month: m }) => {
       const txs  = transactions.filter(tx => {
-        const d = new Date(tx.date)
-        return d.getFullYear() === y && d.getMonth() + 1 === m
+        const [ty, tm] = tx.date.slice(0, 7).split('-').map(Number)
+        return ty === y && tm === m
       })
       const inc  = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
       const exp  = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
@@ -161,10 +161,10 @@ export default function Dashboard({ transactions, filtered, year, month }) {
 
   // ── Row 4: Recent transactions ──────────────────────────────
   const recent = useMemo(() =>
-    [...transactions]
+    [...filtered]
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 5),
-    [transactions]
+    [filtered]
   )
 
   function fmtDate(iso) {

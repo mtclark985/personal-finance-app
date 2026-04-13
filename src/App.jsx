@@ -415,8 +415,8 @@ export default function App() {
   }
 
   const filtered = useMemo(() => transactions.filter(tx => {
-    const d = new Date(tx.date)
-    return d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth
+    const [y, m] = tx.date.slice(0, 7).split('-').map(Number)
+    return y === filterYear && m === filterMonth
   }), [transactions, filterYear, filterMonth])
 
   const viewFiltered = useMemo(() => {
@@ -427,11 +427,10 @@ export default function App() {
   const availableMonths = useMemo(() => {
     const seen = new Set()
     transactions.forEach(tx => {
-      const d = new Date(tx.date)
-      seen.add(`${d.getFullYear()}-${d.getMonth() + 1}`)
+      seen.add(tx.date.slice(0, 7))
     })
     const { year, month } = getCurrentYearMonth()
-    seen.add(`${year}-${month}`)
+    seen.add(`${year}-${String(month).padStart(2, '0')}`)
     return Array.from(seen)
       .map(s => { const [y, m] = s.split('-').map(Number); return { year: y, month: m } })
       .sort((a, b) => b.year - a.year || b.month - a.month)

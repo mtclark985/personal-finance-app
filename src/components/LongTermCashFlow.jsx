@@ -195,8 +195,7 @@ function computeAvgLast3Months(transactions) {
   if (!transactions.length) return { avgIncome: 0, avgExpenses: 0 }
   const map = {}
   transactions.forEach(tx => {
-    const d   = new Date(tx.date)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const key = tx.date.slice(0, 7)
     if (!map[key]) map[key] = { income: 0, expenses: 0 }
     if (tx.type === 'income')  map[key].income   += tx.amount
     if (tx.type === 'expense') map[key].expenses += tx.amount
