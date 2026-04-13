@@ -1060,6 +1060,298 @@ th.cf-bal-sep {
   color: var(--primary);
 }
 
+/* ── Actuals ─────────────────────────────────────────────── */
+
+.actuals-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  min-height: 600px;
+}
+
+/* Sidebar */
+.actuals-sidebar {
+  width: 160px;
+  flex-shrink: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 8px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.actuals-sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  padding: 0 8px 8px;
+  margin: 0;
+}
+
+.actuals-month-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.actuals-month-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+  color: var(--text);
+  transition: background 0.15s;
+}
+
+.actuals-month-btn:hover  { background: var(--bg); }
+.actuals-month-btn.active { background: var(--primary); color: #fff; }
+.actuals-month-btn.active .actuals-month-year { color: rgba(255,255,255,.7); }
+
+.actuals-month-name {
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+}
+
+.actuals-month-year {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.actuals-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.actuals-month-btn.active .actuals-dot { background: rgba(255,255,255,.8); }
+
+/* Editor */
+.actuals-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.actuals-editor-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.actuals-editor-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.actuals-overwrite-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+
+.actuals-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 700px) {
+  .actuals-layout   { flex-direction: column; }
+  .actuals-sidebar  { width: 100%; max-height: 160px; }
+  .actuals-columns  { grid-template-columns: 1fr; }
+}
+
+/* Section (income / expense) */
+.actuals-section {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.actuals-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.actuals-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+}
+
+.actuals-section-total {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Rows */
+.actuals-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actuals-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actuals-cat-select {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.actuals-amount-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 0 10px;
+  gap: 4px;
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.actuals-dollar {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.actuals-amount-input {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  width: 100%;
+  padding: 7px 0;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.actuals-amount-input::-webkit-outer-spin-button,
+.actuals-amount-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.actuals-remove-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.actuals-remove-btn:hover { background: #fee2e2; color: var(--expense); }
+
+.actuals-add-row-btn {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 5px 12px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.actuals-add-row-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Summary bar */
+.actuals-summary {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+}
+
+.actuals-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.actuals-summary-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+}
+
+.actuals-summary-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.actuals-summary-value.income  { color: #059669; }
+.actuals-summary-value.expense { color: #ef4444; }
+
+.actuals-save-btn {
+  margin-left: auto;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.actuals-save-btn:hover    { opacity: 0.88; }
+.actuals-save-btn:disabled { opacity: 0.6; cursor: default; }
+
 /* Form */
 .form-card {
   max-width: 480px;

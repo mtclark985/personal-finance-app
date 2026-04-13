@@ -21,6 +21,7 @@ import Equity from './components/Equity'
 import RentalProperties from './components/RentalProperties'
 import PassiveIncome from './components/PassiveIncome'
 import AIAdvisor from './components/AIAdvisor'
+import Actuals from './components/Actuals'
 import Landing from './components/Landing'
 import Auth from './components/Auth'
 import { useHousehold } from './context/HouseholdContext'
@@ -217,6 +218,7 @@ function EditableName({ value, onSave }) {
 const NAV = [
   { key: 'dashboard',    label: 'Dashboard'      },
   { key: 'transactions', label: 'Transactions'   },
+  { key: 'actuals',      label: 'Actuals'        },
   { key: 'cashflow',     label: 'Cash Flow'      },
   { key: 'budget',       label: 'Budget & Bills' },
   { key: 'networth',     label: 'Net Worth'      },
@@ -404,6 +406,39 @@ export default function App() {
     } catch (err) {
       console.error('Failed to save transaction:', err)
     }
+  }
+
+  async function saveActuals(monthKey, incomeRows, expenseRows) {
+    // Remove all existing transactions for this month
+    const toDelete = transactions.filter(tx => tx.date.slice(0, 7) === monthKey)
+    setTransactions(prev => prev.filter(tx => tx.date.slice(0, 7) !== monthKey))
+    await Promise.all(toDelete.map(tx => removeTransaction(tx.id).catch(console.error)))
+
+    // Build new transactions from actuals rows
+    const [year, mo] = monthKey.split('-').map(Number)
+    const dateStr    = `${year}-${String(mo).padStart(2, '0')}-01`
+    const newTxs = [
+      ...incomeRows
+        .filter(r => r.category && parseFloat(r.amount) > 0)
+        .map(r => ({
+          id: crypto.randomUUID(), type: 'income',
+          category: r.category, amount: parseFloat(r.amount),
+          date: dateStr, description: '', earner: 'joint',
+          recurring: false, frequency: null, endDate: null,
+          source: 'actuals',
+        })),
+      ...expenseRows
+        .filter(r => r.category && parseFloat(r.amount) > 0)
+        .map(r => ({
+          id: crypto.randomUUID(), type: 'expense',
+          category: r.category, amount: parseFloat(r.amount),
+          date: dateStr, description: '', earner: 'joint',
+          recurring: false, frequency: null, endDate: null,
+          source: 'actuals',
+        })),
+    ]
+    setTransactions(prev => [...prev, ...newTxs])
+    await Promise.all(newTxs.map(tx => upsertTransaction(tx).catch(console.error)))
   }
 
   async function updateTransaction(tx) {
@@ -671,6 +706,10 @@ export default function App() {
                 : <LongTermCashFlow transactions={transactions} spendingMode={spendingMode} />
               }
             </>
+          )}
+
+          {activeTab === 'actuals' && (
+            <Actuals transactions={transactions} onSaveMonth={saveActuals} />
           )}
 
           {activeTab === 'transactions' && (
