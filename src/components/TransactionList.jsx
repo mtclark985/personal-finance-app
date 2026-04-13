@@ -1,6 +1,6 @@
 const EARNER_COLORS = { p1: '#6366f1', p2: '#ec4899', joint: '#94a3b8' }
 
-export default function TransactionList({ transactions, onDelete, household }) {
+export default function TransactionList({ transactions, onDelete, onEdit, household }) {
   const p1 = household?.p1 || 'Person 1'
   const p2 = household?.p2 || 'Person 2'
 
@@ -60,6 +60,8 @@ export default function TransactionList({ transactions, onDelete, household }) {
               </div>
               <div className="tx-right">
                 <span className="tx-amount">{formatAmount(tx.amount, tx.type)}</span>
+                <button className="edit-btn" onClick={() => onEdit(tx)}
+                  aria-label="Edit transaction" title="Edit">✎</button>
                 <button className="delete-btn" onClick={() => onDelete(tx.id)}
                   aria-label="Delete transaction" title="Delete">×</button>
               </div>

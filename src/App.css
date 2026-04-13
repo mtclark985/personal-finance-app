@@ -1040,6 +1040,26 @@ th.cf-bal-sep {
   color: var(--expense);
 }
 
+.edit-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.edit-btn:hover {
+  background: #e0e7ff;
+  color: var(--primary);
+}
+
 /* Form */
 .form-card {
   max-width: 480px;

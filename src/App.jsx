@@ -283,6 +283,7 @@ export default function App() {
   const [sageOpen,   setSageOpen]   = useState(false)
   const [healthOpen, setHealthOpen] = useState(false)
   const [addOpen,    setAddOpen]    = useState(false)
+  const [editTx,     setEditTx]     = useState(null)
 
   // Auth state
   const [authState,  setAuthState]  = useState('loading')
@@ -402,6 +403,15 @@ export default function App() {
       await upsertTransaction(newTx)
     } catch (err) {
       console.error('Failed to save transaction:', err)
+    }
+  }
+
+  async function updateTransaction(tx) {
+    setTransactions(prev => prev.map(t => t.id === tx.id ? tx : t))
+    try {
+      await upsertTransaction(tx)
+    } catch (err) {
+      console.error('Failed to update transaction:', err)
     }
   }
 
@@ -669,6 +679,7 @@ export default function App() {
               <TransactionList
                 transactions={viewFiltered}
                 onDelete={deleteTransaction}
+                onEdit={tx => setEditTx(tx)}
                 household={household}
               />
             </>
@@ -765,6 +776,23 @@ export default function App() {
                 addTransaction(tx)
                 setAddOpen(false)
                 setActiveTab('transactions')
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Transaction modal ── */}
+      {editTx && (
+        <div className="modal-overlay" onClick={() => setEditTx(null)}>
+          <div className="modal-panel" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setEditTx(null)}>✕</button>
+            <TransactionForm
+              household={household}
+              initialTx={editTx}
+              onSave={tx => {
+                updateTransaction(tx)
+                setEditTx(null)
               }}
             />
           </div>

@@ -11,17 +11,18 @@ const FREQUENCIES = ['Monthly', 'Weekly', 'Bi-weekly', 'Quarterly', 'Annual']
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
-export default function TransactionForm({ onAdd, household }) {
-  const [type,        setType]        = useState('expense')
-  const [amount,      setAmount]      = useState('')
-  const [category,    setCategory]    = useState(EXPENSE_CATEGORIES[0])
-  const [date,        setDate]        = useState(today())
-  const [description, setDescription] = useState('')
-  const [earner,      setEarner]      = useState('joint')
+export default function TransactionForm({ onAdd, onSave, initialTx, household }) {
+  const editing = !!initialTx
+  const [type,        setType]        = useState(initialTx?.type        ?? 'expense')
+  const [amount,      setAmount]      = useState(initialTx?.amount != null ? String(initialTx.amount) : '')
+  const [category,    setCategory]    = useState(initialTx?.category    ?? EXPENSE_CATEGORIES[0])
+  const [date,        setDate]        = useState(initialTx?.date        ?? today())
+  const [description, setDescription] = useState(initialTx?.description ?? '')
+  const [earner,      setEarner]      = useState(initialTx?.earner      ?? 'joint')
   const [error,       setError]       = useState('')
-  const [recurring,   setRecurring]   = useState(false)
-  const [frequency,   setFrequency]   = useState('Monthly')
-  const [endDate,     setEndDate]     = useState('')
+  const [recurring,   setRecurring]   = useState(initialTx?.recurring   ?? false)
+  const [frequency,   setFrequency]   = useState(initialTx?.frequency   ?? 'Monthly')
+  const [endDate,     setEndDate]     = useState(initialTx?.endDate      ?? '')
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
   const p1 = household?.p1 || 'Person 1'
@@ -49,18 +50,22 @@ export default function TransactionForm({ onAdd, household }) {
       frequency: type === 'expense' && recurring ? frequency : null,
       endDate:   type === 'expense' && recurring && endDate ? endDate : null,
     }
-    onAdd(tx)
-    setAmount('')
-    setDescription('')
-    setDate(today())
-    setRecurring(false)
-    setFrequency('Monthly')
-    setEndDate('')
+    if (editing) {
+      onSave({ ...initialTx, ...tx })
+    } else {
+      onAdd(tx)
+      setAmount('')
+      setDescription('')
+      setDate(today())
+      setRecurring(false)
+      setFrequency('Monthly')
+      setEndDate('')
+    }
   }
 
   return (
     <div className="card form-card">
-      <h2>Add Transaction</h2>
+      <h2>{editing ? 'Edit Transaction' : 'Add Transaction'}</h2>
 
       <div className="type-toggle">
         <button type="button"
@@ -140,7 +145,7 @@ export default function TransactionForm({ onAdd, household }) {
         {error && <p className="form-error">{error}</p>}
 
         <button type="submit" className={`submit-btn ${type}`}>
-          Add {type === 'expense' ? 'Expense' : 'Income'}
+          {editing ? 'Save Changes' : `Add ${type === 'expense' ? 'Expense' : 'Income'}`}
         </button>
       </form>
     </div>
